@@ -1,0 +1,4 @@
+PyQt6
+PyAudio
+websocket-client
+aiohttp 
