@@ -75,18 +75,21 @@
 ## 目录结构
 
 ```
-翻译app/
-  ├── ui/
-  │    └── main_window.py
-  ├── translator.py
-  ├── config.py
+Translate-Chat/
+  ├── asr_client.py
+  ├── audio_capture.py
+  ├── config_template.py
   ├── lang_detect.py
   ├── main.py
+  ├── README.md
   ├── requirements.txt
   ├── run.sh
-  └── test.pcm
-assets/
-venv/
+  ├── Translate-Chat/
+  │     └── README.md
+  ├── translator.py
+  ├── ui/
+  │     └── main_window.py
+  └── venv/
 ```
 
 ## 依赖
