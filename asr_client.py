@@ -1,3 +1,11 @@
+# =============================================================
+# 文件名(File): asr_client.py
+# 版本(Version): v0.2
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/7/25
+# 简介(Description): 火山ASR客户端模块
+# =============================================================
+
 import aiohttp
 import asyncio
 import struct
@@ -93,7 +101,7 @@ class RequestBuilder:
         payload = {
             "user": {"uid": "demo_uid"},
             "audio": {
-                "format": "pcm",
+                "format": "pcm",  # 恢复为PCM编码
                 "codec": "raw",
                 "rate": ASR_SAMPLE_RATE,
                 "bits": 16,
@@ -105,6 +113,10 @@ class RequestBuilder:
                 "enable_punc": True,
                 "enable_ddc": True,
                 "show_utterances": True,
+                "result_type": "single",
+                "vad_segment_duration": 600,
+                # "end_window_size": 800,
+                # "force_to_speech_time": 1000,
                 "enable_nonstream": False
             }
         }
@@ -195,6 +207,23 @@ class ResponseParser:
             logger.error(f"Failed to parse payload: {e}")
         return response
 
+# 错误码与原因映射
+ASR_ERROR_CODE_MAP = {
+    20000000: "成功",
+    45000001: "请求参数无效：请求参数缺失必需字段 / 字段值无效 / 重复请求。",
+    45000002: "空音频",
+    45000081: "等包超时",
+    45000151: "音频格式不正确",
+    55000031: "服务器繁忙：服务过载，无法处理当前请求。",
+}
+
+def get_asr_error_reason(code):
+    if code in ASR_ERROR_CODE_MAP:
+        return ASR_ERROR_CODE_MAP[code]
+    if 55000000 <= code <= 55099999:
+        return "服务内部处理错误"
+    return "未知错误"
+
 # 主ASR客户端
 class VolcanoASRClientAsync:
     def __init__(self, on_result=None, segment_duration=200):
@@ -228,13 +257,19 @@ class VolcanoASRClientAsync:
         self.seq += 1
 
     async def send_audio_stream(self, audio_generator):
+        buf = b""
+        count = 0
         async for chunk, is_last in audio_generator:
-            request = RequestBuilder.new_audio_only_request(self.seq, chunk, is_last=is_last)
-            await self.conn.send_bytes(request)
-            logger.info(f"Sent audio chunk seq={self.seq} last={is_last}")
-            if not is_last:
-                self.seq += 1
-            await asyncio.sleep(self.segment_duration / 1000)
+            buf += chunk
+            count += 1
+            if count == 3 or is_last:
+                request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
+                await self.conn.send_bytes(request)
+                logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
+                if not is_last:
+                    self.seq += 1
+                buf = b""
+                count = 0
 
     async def receive_results(self):
         async for msg in self.conn:
@@ -247,8 +282,13 @@ class VolcanoASRClientAsync:
                     if text:
                         import json
                         print("[ASR JSON]", json.dumps(response.payload_msg, ensure_ascii=False))
+                if response.code != 0:
+                    reason = get_asr_error_reason(response.code)
+                    logger.error(f"ASR错误码: {response.code}, 原因: {reason}")
                 if self.on_result:
-                    self.on_result(response)
+                    ret = self.on_result(response)
+                    if asyncio.iscoroutine(ret):
+                        await ret
                 if response.is_last_package or response.code != 0:
                     break
             elif msg.type == aiohttp.WSMsgType.ERROR:

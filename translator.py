@@ -1,3 +1,11 @@
+# =============================================================
+# 文件名(File): translator.py
+# 版本(Version): v0.2
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/7/25
+# 简介(Description): 翻译逻辑模块
+# =============================================================
+
 import aiohttp
 import asyncio
 from config import TRANSLATE_API_URL, LLM_API_KEY, LLM_MODEL
