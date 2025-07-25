@@ -1,0 +1,387 @@
+# =============================================================
+# 文件名(File): main_window_kivy.py
+# 版本(Version): v2.0
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/7/25
+# 简介(Description): KivyMD 版主界面，全面美化优化，KivyMD带来无尽的烦恼，兼容性依然是一个很大问题。
+# =============================================================
+
+# 字体路径（已下载到 assets/fonts/NotoSansSC-VariableFont_wght.ttf）
+import os
+from kivy.core.text import LabelBase
+FONT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts/NotoSansSC-VariableFont_wght.ttf'))
+LabelBase.register(name="NotoSansSC", fn_regular=FONT_PATH)
+
+
+os.environ["KIVY_LOG_LEVEL"] = "error"
+
+from kivy.lang import Builder
+from kivy.properties import BooleanProperty, ObjectProperty, StringProperty
+from kivy.clock import mainthread, Clock
+from kivy.metrics import dp
+import threading
+import asyncio
+import os
+
+from kivymd.app import MDApp
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.card import MDCard
+from kivymd.uix.label import MDLabel
+from kivymd.uix.widget import Widget
+from kivymd.uix.selectioncontrol import MDSwitch
+from kivy.core.text import LabelBase
+
+
+
+
+import re
+import traceback
+
+def clean_text(text):
+    if not isinstance(text, str):
+        return text
+    # 去除常见不可见字符和替换符号，保留所有可打印的 Unicode 字符（多语言兼容）
+    text = text.replace('\uFFFD', '').replace('\u200B', '').replace('\uFEFF', '')
+    # 去除所有 C0/C1 控制字符（除换行、制表符外）
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', '', text)
+    # 去除字符串首尾空白
+    return text.strip()
+
+from audio_capture import AudioStream
+from asr_client import VolcanoASRClientAsync
+from lang_detect import LangDetect
+from translator import Translator
+
+KV = '''
+<MDLabel>:
+    font_name: 'NotoSansSC'
+<MDButtonText>:
+    font_name: 'NotoSansSC'
+<MDToolbar>:
+    font_name: 'NotoSansSC'
+
+<ChatBubble@MDCard>:
+    orientation: 'vertical'
+    adaptive_height: True
+    size_hint_x: 0.9
+    size_hint_y: None
+    height: self.minimum_height
+    padding: dp(10), dp(6)
+    radius: [12, 12, 12, 12]
+    md_bg_color: .18, .18, .18, 1
+    elevation: 0
+    pos_hint: {"x": 0}
+    MDLabel:
+        text: root.text
+        font_style: 'H5'
+        font_name: 'NotoSansSC'
+        theme_text_color: 'Custom'
+        text_color: 1, 1, 1, 1
+        adaptive_height: True
+        size_hint_x: 1
+        size_hint_y: None
+        height: self.texture_size[1]
+        text_size: self.width, None
+        halign: 'left'
+        valign: 'middle'
+    MDLabel:
+        text: root.translation if root.translation and app.show_translation else ''
+        font_style: 'Body1'
+        font_name: 'NotoSansSC'
+        theme_text_color: 'Custom'
+        text_color: .7, .7, .7, 1
+        adaptive_height: True
+        size_hint_x: 1
+        size_hint_y: None
+        height: self.texture_size[1]
+        text_size: self.width, None
+        halign: 'left'
+        valign: 'middle'
+    MDLabel:
+        text: root.timeout_tip if root.timeout_tip else ''
+        font_style: 'Body1'
+        font_name: 'NotoSansSC'
+        theme_text_color: 'Custom'
+        text_color: 1, 0.2, 0.2, 1
+        adaptive_height: True
+        size_hint_x: 1
+        size_hint_y: None
+        height: self.texture_size[1]
+        text_size: self.width, None
+        halign: 'left'
+        valign: 'middle'
+
+<InterimBubble@MDCard>:
+    orientation: 'vertical'
+    adaptive_height: True
+    size_hint_x: 0.9
+    size_hint_y: None
+    height: self.minimum_height
+    padding: dp(10), dp(6)
+    radius: [12, 12, 12, 12]
+    md_bg_color: 1, 0.85, 0.2, 0.18
+    elevation: 0
+    pos_hint: {"x": 0}
+    MDLabel:
+        text: root.text
+        font_style: 'Body1'
+        font_name: 'NotoSansSC'
+        italic: True
+        theme_text_color: 'Custom'
+        text_color: 1, 0.85, 0.2, 1
+        adaptive_height: True
+        size_hint_x: 1
+        size_hint_y: None
+        height: self.texture_size[1]
+        text_size: self.width, None
+        halign: 'left'
+        valign: 'middle'
+
+<MainWidget>:
+    orientation: 'vertical'
+    md_bg_color: .12, .12, .12, 1
+
+    ScrollView:
+        size_hint_y: 1
+        do_scroll_x: False
+        MDBoxLayout:
+            id: chat_area
+            orientation: 'vertical'
+            adaptive_height: True
+            padding: dp(8), dp(8)
+            spacing: dp(8)
+
+    MDBoxLayout:
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: dp(60)
+        padding: dp(16), dp(8), dp(16), dp(16)
+        spacing: dp(12)
+        MDRaisedButton:
+            text: 'Mic ON'
+            on_release: root.on_mic()
+            disabled: root.asr_running
+        MDRaisedButton:
+            text: 'Stop'
+            on_release: root.on_stop()
+        MDRaisedButton:
+            text: 'Reset'
+            on_release: root.on_reset()
+        Widget:
+        MDBoxLayout:
+            orientation: 'horizontal'
+            spacing: dp(8)
+            size_hint_x: None
+            width: self.minimum_width
+            pos_hint: {"center_y": 0.5}
+            MDSwitch:
+                id: translate_switch
+                size_hint: None, None
+                size: dp(48), dp(32)
+                pos_hint: {"center_y": 0.5}
+                active: app.show_translation
+                on_active: app.toggle_translation(self.active)
+
+'''
+
+Builder.load_string(KV)
+
+class MainWidget(MDBoxLayout):
+    asr_running = BooleanProperty(False)
+    mic_btn_text = ObjectProperty('Mic ON')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.final_texts = []
+        self.final_bubbles = []
+        self.last_shown_definite_text = None
+        self.final_utterance_keys = set()
+        self.asr_thread = None
+        self.audio = None
+        self.lang_detect = LangDetect()
+        self.translator = Translator()
+        self.loop = None
+        self.interim_bubble = None  # 只保留一个interim气泡
+        self._asr_call_count = 0  # 调用计数
+
+    def on_mic(self):
+        if self.asr_running:
+            return
+        self.set_asr_running(True)
+        self.mic_btn_text = 'Mic OFF'
+        self.audio = AudioStream()
+        self.asr_thread = threading.Thread(target=self._run_asr, daemon=True)
+        self.asr_thread.start()
+
+    def on_stop(self):
+        self.set_asr_running(False)
+        if self.audio:
+            self.audio.stop()
+        self.mic_btn_text = 'Mic ON'
+        if self.asr_thread and self.asr_thread.is_alive():
+            self.asr_thread.join(timeout=1)
+
+    def on_reset(self):
+        self.final_texts.clear()
+        self.final_bubbles.clear()
+        self.last_shown_definite_text = None
+        self.final_utterance_keys.clear()
+        self.ids.chat_area.clear_widgets()
+        self.scroll_to_bottom()
+
+    def on_translate_checkbox_changed(self, active):
+        pass  # 已废弃，统一用app.show_translation
+
+    @mainthread
+    def set_asr_running(self, value):
+        self.asr_running = value
+
+    def _run_asr(self):
+        try:
+            asyncio.run(self._asr_flow())
+        except Exception as e:
+            print("ASR error:", e)
+            # 确保异常时也能安全切回主线程修改UI
+            Clock.schedule_once(lambda dt: self.set_asr_running(False))
+
+    async def _asr_flow(self):
+        N = 10
+        last_text = None
+        last_emit_time = None
+        no_update_count = 0
+        audio = self.audio
+        async def on_result(response):
+            nonlocal last_text, last_emit_time, no_update_count
+            if not self.asr_running:
+                return
+            now = asyncio.get_event_loop().time()
+            timeout_finalize = False
+            if response.payload_msg:
+                result = response.payload_msg.get('result', {})
+                asr_utterances = result.get('utterances', [])
+                updated = False
+                current_text = None
+                new_definite_utterances = []
+                for utt in asr_utterances:
+                    if utt.get('definite') and not utt.get('translation'):
+                        if self.get_app_show_translation():
+                            src_lang = self.lang_detect.detect(utt['text'])
+                            tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
+                            utt['translation'] = await self.translator.translate(utt['text'], src_lang=src_lang, tgt_lang=tgt_lang)
+                        else:
+                            utt['translation'] = None
+                        updated = True
+                    if utt.get('text'):
+                        current_text = utt['text']
+                    if utt.get('definite') and utt.get('text'):
+                        new_definite_utterances.append(utt)
+                if current_text and current_text != getattr(self, 'last_shown_definite_text', None):
+                    self.last_shown_definite_text = current_text
+                    no_update_count = 0
+                    last_emit_time = now
+                else:
+                    no_update_count += 1
+                if no_update_count >= N and last_text:
+                    timeout_finalize = True
+                    utterance = {'text': last_text, 'definite': True, 'translation': None, 'timeout_finalize': True}
+                    if self.get_app_show_translation():
+                        src_lang = self.lang_detect.detect(last_text)
+                        tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
+                        utterance['translation'] = await self.translator.translate(last_text, src_lang=src_lang, tgt_lang=tgt_lang)
+                    self._show_asr_utterances([utterance])
+                    no_update_count = 0
+                    last_emit_time = now
+                else:
+                    for utt in asr_utterances:
+                        if utt.get('definite'):
+                            utt['timeout_finalize'] = False
+                    self._show_asr_utterances(asr_utterances)
+                    last_emit_time = now
+        async with VolcanoASRClientAsync(on_result=on_result) as asr:
+            try:
+                await asr.run(audio.audio_stream_generator())
+            except Exception as e:
+                print("ASR error:", e)
+        self.set_asr_running(False)
+        self.mic_btn_text = 'Mic ON'
+
+    def get_app_show_translation(self):
+        # 兼容在主线程和子线程下获取app实例
+        from kivy.app import App
+        app = App.get_running_app()
+        return getattr(app, 'show_translation', True)
+
+    @mainthread
+    def _show_asr_utterances(self, utterances):
+        self._asr_call_count += 1
+        print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
+        traceback.print_stack(limit=3)
+        chat_area = self.ids.chat_area
+        print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
+        # 1. 固化分句：增量添加到 final_bubbles，历史内容不丢失
+        for utt in utterances:
+            text = utt.get('text', '')
+            definite = utt.get('definite', False)
+            translation = utt.get('translation', None)
+            timeout_finalize = utt.get('timeout_finalize', False)
+            start_time = utt.get('start_time')
+            end_time = utt.get('end_time')
+            key = (text, start_time, end_time)
+            timeout_tip = '超时自动固化' if timeout_finalize else ''
+            if definite and text and key not in self.final_utterance_keys:
+                bubble = self.create_bubble(text, translation, timeout_tip)
+                self.final_bubbles.append(bubble)
+                self.final_utterance_keys.add(key)
+        # 2. 清空并重绘所有固化分句
+        chat_area.clear_widgets()
+        for bubble in self.final_bubbles:
+            chat_area.add_widget(bubble)
+        # 3. interim 气泡始终只有一个，显示在最下方
+        interim = None
+        for utt in utterances:
+            text = utt.get('text', '')
+            definite = utt.get('definite', False)
+            if not definite and text:
+                interim = text
+        if interim:
+            self.interim_bubble = InterimBubble(text=interim)
+            chat_area.add_widget(self.interim_bubble)
+        # 4. 只有内容超出可视区时才自动滚动到底部
+        scrollview = chat_area.parent
+        if chat_area.height > scrollview.height:
+            self.scroll_to_bottom()
+        print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
+
+    def create_bubble(self, text, translation, timeout_tip):
+        return ChatBubble(text=clean_text(text), translation=translation or '', timeout_tip=timeout_tip or '')
+
+    @mainthread
+    def scroll_to_bottom(self):
+        chat_area = self.ids.chat_area
+        if chat_area:
+            chat_area.parent.scroll_y = 0
+
+class ChatBubble(MDCard):
+    text = StringProperty()
+    translation = StringProperty()
+    timeout_tip = StringProperty()
+
+class InterimBubble(MDCard):
+    text = StringProperty()
+
+class TranslateChatApp(MDApp):
+    show_translation = BooleanProperty(True)
+    def toggle_translation(self, value):
+        self.show_translation = value
+    def build(self):
+        self.theme_cls.theme_style = "Dark"
+        self.theme_cls.primary_palette = "Blue"
+        # 删除 font_styles.update 相关代码，避免 KivyMD 2.x 主题机制报错
+        return MainWidget()
+
+def run_app():
+    TranslateChatApp().run()
+
+# 本地测试
+if __name__ == '__main__':
+    run_app() 

@@ -1,0 +1,5 @@
+PyQt6
+websocket-client
+aiohttp
+PyAudio>=0.2.14
+kivymd==1.1.1 

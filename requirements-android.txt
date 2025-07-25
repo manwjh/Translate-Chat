@@ -1,0 +1,7 @@
+PyQt6
+websocket-client
+aiohttp
+kivy>=2.3.0
+kivymd==1.1.1
+plyer>=2.1.0
+ffpyplayer>=4.5.0 

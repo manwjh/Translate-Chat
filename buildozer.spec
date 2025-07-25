@@ -1,0 +1,20 @@
+[app]
+title = Translate-Chat
+package.name = translatechat
+package.domain = org.translatechat
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,json,md
+version = 0.1
+requirements = python3,kivy,kivymd,plyer,ffpyplayer,websocket-client,aiohttp
+orientation = portrait
+fullscreen = 0
+android.permissions = INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+android.api = 31
+android.minapi = 21
+android.ndk = 25b
+android.sdk = 33
+android.arch = arm64-v8a
+android.allow_backup = True
+android.presplash_color = #FFFFFF
+android.icon.filename = %(source.dir)s/icon.png
+android.presplash.filename = %(source.dir)s/presplash.png 
