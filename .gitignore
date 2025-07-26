@@ -62,5 +62,9 @@ build/
 .env.local
 .env.*.local
 
+# 配置文件（包含敏感信息）
+config.py
+config_local.py
+
 # Buildozer构建目录
 .buildozer/ 
