@@ -47,11 +47,35 @@ detect_system() {
 # 检查Python版本
 check_python_version() {
     local python_cmd="$1"
-    local version=$($python_cmd --version 2>&1 | cut -d' ' -f2)
-    local major=$(echo $version | cut -d'.' -f1)
-    local minor=$(echo $version | cut -d'.' -f2)
     
-    log_info "检测到Python版本: $version"
+    # 检查命令是否存在
+    if ! command -v "$python_cmd" &> /dev/null; then
+        log_error "Python命令不存在: $python_cmd"
+        return 1
+    fi
+    
+    # 获取版本信息，处理不同输出格式
+    local version_output
+    version_output=$("$python_cmd" --version 2>&1)
+    
+    # 调试信息
+    log_info "Python版本输出: '$version_output'"
+    
+    # 解析版本号，支持多种格式
+    local version=""
+    if [[ "$version_output" =~ Python[[:space:]]+([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        version="${BASH_REMATCH[1]}"
+    elif [[ "$version_output" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        version="${BASH_REMATCH[1]}"
+    else
+        log_error "无法解析Python版本: $version_output"
+        return 1
+    fi
+    
+    local major=$(echo "$version" | cut -d'.' -f1)
+    local minor=$(echo "$version" | cut -d'.' -f2)
+    
+    log_info "检测到Python版本: $version (major=$major, minor=$minor)"
     
     if [[ $major -eq 3 && $minor -ge 9 && $minor -le 11 ]]; then
         log_success "Python版本兼容: $version"
@@ -336,10 +360,12 @@ check_environment() {
         local new_python_cmd=$(install_compatible_python)
         if [[ $? -eq 0 && -n "$new_python_cmd" ]]; then
             log_success "使用新安装的Python: $new_python_cmd"
-            python_cmd="$new_python_cmd"
             # 重新检查版本
-            if check_python_version "$python_cmd"; then
+            if check_python_version "$new_python_cmd"; then
                 log_success "Python环境检查通过"
+                # 返回新安装的Python命令
+                echo "$new_python_cmd"
+                return 0
             else
                 log_error "Python环境检查失败"
                 return 1
@@ -349,19 +375,11 @@ check_environment() {
             log_info "请手动安装Python 3.9-3.11版本后重试"
             return 1
         fi
+    else
+        log_success "Python环境检查通过"
+        echo "$python_cmd"
+        return 0
     fi
-    
-    # 检查Java
-    if ! check_java_version; then
-        log_error "Java环境检查失败"
-        return 1
-    fi
-    
-    # 设置Java环境
-    setup_java_env
-    
-    log_success "环境检查通过"
-    return 0
 }
 
 # 错误处理函数

@@ -35,27 +35,22 @@ echo ""
 
 # 环境检查
 echo "==== 1. 环境检查 ===="
-if ! check_environment; then
+PYTHON_CMD=$(check_environment)
+if [[ $? -ne 0 ]]; then
     log_error "环境检查失败，请修复问题后重试"
     exit 1
 fi
 
-# 获取合适的Python命令
-get_python_cmd() {
-    # 优先检查Python 3.10
-    if command -v python3.10 &> /dev/null; then
-        echo "python3.10"
-    elif command -v python3.11 &> /dev/null; then
-        echo "python3.11"
-    elif command -v python3.9 &> /dev/null; then
-        echo "python3.9"
-    else
-        echo "python3"
-    fi
-}
+log_success "环境检查通过，使用Python: $PYTHON_CMD"
 
-PYTHON_CMD=$(get_python_cmd)
-log_info "使用Python命令: $PYTHON_CMD"
+# 检查Java环境
+if ! check_java_version; then
+    log_error "Java环境检查失败"
+    exit 1
+fi
+
+# 设置Java环境
+setup_java_env
 
 # 配置pip镜像
 echo "==== 2. 配置pip镜像 ===="
@@ -181,10 +176,18 @@ export SDL2_TTF_LOCAL_PATH
 
 # 执行打包
 log_info "执行buildozer打包..."
+log_info "使用Python: $PYTHON_CMD"
+log_info "使用Java: $JAVA_HOME"
+
 if buildozer -v android debug; then
     log_success "buildozer打包命令执行完成"
 else
     log_error "buildozer打包失败"
+    log_info "请检查日志并修复问题后重试"
+    log_info "常见问题："
+    log_info "1. 网络连接问题 - 检查网络或使用科学上网工具"
+    log_info "2. 权限问题 - 确保有足够的磁盘空间和权限"
+    log_info "3. 依赖问题 - 运行: ./scripts/pyjnius_patch.sh"
     exit 1
 fi
 
@@ -206,7 +209,7 @@ log_success "SDL2本地文件配置:"
 [[ -n "$SDL2_TTF_LOCAL_PATH" ]] && echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
 echo ""
 log_success "环境配置:"
-echo "  - Python版本: $(python3 --version)"
+echo "  - Python版本: $($PYTHON_CMD --version)"
 echo "  - Java版本: $(java -version 2>&1 | head -n 1)"
 echo "  - JAVA_HOME: $JAVA_HOME"
 echo ""

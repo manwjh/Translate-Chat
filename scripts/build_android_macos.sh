@@ -86,6 +86,14 @@ if ! command -v brew &> /dev/null; then
     exit 1
 fi
 
+# 安装JDK 17
+if ! brew list --versions openjdk@17 >/dev/null; then
+    log_info "安装openjdk@17..."
+    brew install openjdk@17
+else
+    log_success "openjdk@17已安装"
+fi
+
 # 安装其他必要依赖
 log_info "安装其他系统依赖..."
 brew install git cmake pkg-config
@@ -155,6 +163,20 @@ log_info "注意: 首次打包可能需要较长时间，需要下载Android SDK
 log_info "如果网络较慢，建议使用科学上网工具"
 echo ""
 
+# 验证环境变量
+log_info "验证环境变量..."
+if [[ -z "$JAVA_HOME" ]]; then
+    log_error "JAVA_HOME未设置"
+    exit 1
+fi
+
+if [[ -z "$PYTHON_CMD" ]]; then
+    log_error "PYTHON_CMD未设置"
+    exit 1
+fi
+
+log_success "环境变量验证通过"
+
 # 设置环境变量确保在虚拟环境中可见
 export JAVA_HOME
 export PATH
@@ -165,10 +187,18 @@ export SDL2_TTF_LOCAL_PATH
 
 # 执行打包
 log_info "执行buildozer打包..."
+log_info "使用Python: $PYTHON_CMD"
+log_info "使用Java: $JAVA_HOME"
+
 if buildozer -v android debug; then
     log_success "buildozer打包命令执行完成"
 else
     log_error "buildozer打包失败"
+    log_info "请检查日志并修复问题后重试"
+    log_info "常见问题："
+    log_info "1. 网络连接问题 - 检查网络或使用科学上网工具"
+    log_info "2. 权限问题 - 确保有足够的磁盘空间和权限"
+    log_info "3. 依赖问题 - 运行: ./scripts/pyjnius_patch.sh"
     exit 1
 fi
 
@@ -190,7 +220,7 @@ log_success "SDL2本地文件配置:"
 [[ -n "$SDL2_TTF_LOCAL_PATH" ]] && echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
 echo ""
 log_success "环境配置:"
-echo "  - Python版本: $(python3 --version)"
+echo "  - Python版本: $($PYTHON_CMD --version)"
 echo "  - Java版本: $(java -version 2>&1 | head -n 1)"
 echo "  - JAVA_HOME: $JAVA_HOME"
 echo ""
@@ -205,6 +235,20 @@ echo ""
 echo "==== 打包完成 ===="
 echo "结束时间: $(date)"
 echo ""
+
+# 显示构建统计信息
+if [[ -d "bin" ]]; then
+    echo "==== 构建统计 ===="
+    log_info "APK文件信息:"
+    for apk in bin/*.apk; do
+        if [[ -f "$apk" ]]; then
+            local size=$(du -h "$apk" | cut -f1)
+            local filename=$(basename "$apk")
+            echo "  - $filename ($size)"
+        fi
+    done
+    echo ""
+fi
 
 # 可选：自动部署到设备
 read -p "是否立即部署到连接的设备? (y/N): " -n 1 -r
