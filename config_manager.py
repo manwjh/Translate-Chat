@@ -83,7 +83,7 @@ class ConfigManager:
         # 检查必要的环境变量是否存在
         if all([asr_app_key, asr_access_key, llm_api_key]):
             config.update({
-                'ASR_WS_URL': "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async",
+                'ASR_WS_URL': "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel",
                 'ASR_APP_ID': asr_app_id or "8388344882",  # 使用默认值或环境变量
                 'ASR_APP_KEY': asr_app_key,
                 'ASR_ACCESS_KEY': asr_access_key,

@@ -278,7 +278,8 @@ class VolcanoASRClientAsync:
             #for speech_pcm, is_changed in results:
             #    if is_changed:
             #        print("[SpeakerChange] 检测到说话人变化！")
-            if count == 2 or is_last:
+            # 调整为累积1个200ms块就发送，减少网络传输频率
+            if count == 1 or is_last:
                 request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
                 await self.conn.send_bytes(request)
                 logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
@@ -299,9 +300,9 @@ class VolcanoASRClientAsync:
                 if response.payload_msg:
                     result = response.payload_msg.get('result', {})
                     text = result.get('text', '')
-                    if text:
-                        import json
-                        print("[ASR JSON]", json.dumps(response.payload_msg, ensure_ascii=False))
+                    #if text:
+                    #    import json
+                    #    print("[ASR JSON]", json.dumps(response.payload_msg, ensure_ascii=False))
                 if response.code != 0:
                     reason = get_asr_error_reason(response.code)
                     logger.error(f"ASR错误码: {response.code}, 原因: {reason}")

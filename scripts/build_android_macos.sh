@@ -136,54 +136,86 @@ export CPPFLAGS
 export PKG_CONFIG_PATH
 export JAVA_HOME
 export PATH
-
-# 检查buildozer.spec文件
-echo "==== 7. 检查Buildozer配置 ===="
-if [[ ! -f "buildozer.spec" ]]; then
-    log_info "未找到buildozer.spec，正在初始化..."
-    buildozer init
-    log_warning "buildozer.spec已创建，请检查配置后重新运行脚本"
-    exit 0
-else
-    log_success "找到buildozer.spec文件"
-    log_info "当前配置摘要:"
-    log_info "- 应用名称: $(grep '^title =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    log_info "- 包名: $(grep '^package.name =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    log_info "- 版本: $(grep '^version =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    log_info "- 目标架构: $(grep '^android.archs =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-fi
-
-# 清理之前的构建
-echo "==== 8. 清理之前的构建 ===="
-clean_build_cache
-
-# 开始打包APK
-echo "==== 9. 开始打包APK ===="
-log_info "注意: 首次打包可能需要较长时间，需要下载Android SDK/NDK"
-log_info "如果网络较慢，建议使用科学上网工具"
-echo ""
-
-# 验证环境变量
-log_info "验证环境变量..."
-if [[ -z "$JAVA_HOME" ]]; then
-    log_error "JAVA_HOME未设置"
-    exit 1
-fi
-
-if [[ -z "$PYTHON_CMD" ]]; then
-    log_error "PYTHON_CMD未设置"
-    exit 1
-fi
-
-log_success "环境变量验证通过"
-
-# 设置环境变量确保在虚拟环境中可见
-export JAVA_HOME
-export PATH
 export SDL2_LOCAL_PATH
 export SDL2_MIXER_LOCAL_PATH
 export SDL2_IMAGE_LOCAL_PATH
 export SDL2_TTF_LOCAL_PATH
+export LIBWEBP_LOCAL_PATH
+export OPENJDK_AARCH64_LOCAL_PATH
+export OPENJDK_X64_LOCAL_PATH
+export ANDROID_SDK_LOCAL_PATH
+export ANDROID_NDK_LOCAL_PATH
+
+# === 本地libwebp自动兜底机制 ===
+log_info "检查是否需要自动解压本地libwebp包..."
+# 先尝试触发external目录生成（不要求成功）
+buildozer android release || true
+EXTERNAL_DIR=$(find .buildozer -type d -path "*/SDL2_image/external" | head -n 1)
+if [[ -n "$LIBWEBP_LOCAL_PATH" && -f "$LIBWEBP_LOCAL_PATH" && -n "$EXTERNAL_DIR" ]]; then
+    log_info "检测到本地libwebp包，准备解压到external目录..."
+    tar -xf "$LIBWEBP_LOCAL_PATH" -C "$EXTERNAL_DIR"
+    log_success "libwebp已解压到: $EXTERNAL_DIR"
+else
+    log_info "未检测到本地libwebp包或external目录，跳过自动解压"
+fi
+
+# === 本地OpenJDK17自动兜底机制 ===
+log_info "检查是否需要配置本地OpenJDK17包..."
+# 检测系统架构并选择对应的OpenJDK包
+if [[ "$(uname -m)" == "arm64" ]]; then
+    OPENJDK_LOCAL_PATH="$OPENJDK_AARCH64_LOCAL_PATH"
+    log_info "检测到ARM64架构，使用aarch64版本OpenJDK"
+else
+    OPENJDK_LOCAL_PATH="$OPENJDK_X64_LOCAL_PATH"
+    log_info "检测到x64架构，使用x64版本OpenJDK"
+fi
+
+if [[ -n "$OPENJDK_LOCAL_PATH" && -f "$OPENJDK_LOCAL_PATH" ]]; then
+    log_info "检测到本地OpenJDK17包，准备配置..."
+    # 创建OpenJDK目标目录
+    OPENJDK_TARGET_DIR="$HOME/.buildozer/android/platform/openjdk"
+    mkdir -p "$OPENJDK_TARGET_DIR"
+    
+    # 解压OpenJDK到目标目录
+    log_info "解压OpenJDK17到: $OPENJDK_TARGET_DIR"
+    tar -xf "$OPENJDK_LOCAL_PATH" -C "$OPENJDK_TARGET_DIR"
+    
+    # 设置JAVA_HOME环境变量指向本地OpenJDK
+    OPENJDK_EXTRACTED_DIR=$(find "$OPENJDK_TARGET_DIR" -maxdepth 1 -type d -name "*jdk*" | head -n 1)
+    if [[ -n "$OPENJDK_EXTRACTED_DIR" ]]; then
+        export JAVA_HOME="$OPENJDK_EXTRACTED_DIR"
+        export PATH="$JAVA_HOME/bin:$PATH"
+        log_success "OpenJDK17已配置: $JAVA_HOME"
+    else
+        log_warning "OpenJDK解压后未找到jdk目录，使用系统默认Java"
+    fi
+else
+    log_info "未检测到本地OpenJDK17包，使用系统默认Java"
+fi
+
+# === 本地Android SDK/NDK自动兜底机制 ===
+log_info "检查是否需要配置本地Android SDK/NDK包..."
+ANDROID_SDK_TARGET_DIR="$HOME/.buildozer/android/platform/android-sdk"
+ANDROID_NDK_TARGET_DIR="$HOME/.buildozer/android/platform/android-ndk-r25b"
+
+# 配置SDK
+if [[ -n "$ANDROID_SDK_LOCAL_PATH" && -f "$ANDROID_SDK_LOCAL_PATH" ]]; then
+    log_info "检测到本地Android SDK包，准备解压..."
+    mkdir -p "$ANDROID_SDK_TARGET_DIR"
+    unzip -o "$ANDROID_SDK_LOCAL_PATH" -d "$ANDROID_SDK_TARGET_DIR" && log_success "Android SDK已解压到: $ANDROID_SDK_TARGET_DIR" || log_warning "Android SDK解压失败"
+else
+    log_info "未检测到本地Android SDK包，使用系统默认或在线下载"
+fi
+
+# 配置NDK
+if [[ -n "$ANDROID_NDK_LOCAL_PATH" && -f "$ANDROID_NDK_LOCAL_PATH" ]]; then
+    log_info "检测到本地Android NDK包，准备挂载/解压..."
+    mkdir -p "$ANDROID_NDK_TARGET_DIR"
+    # macOS下dmg需挂载，简化处理为提示用户手动挂载或解压
+    hdiutil attach "$ANDROID_NDK_LOCAL_PATH" -mountpoint "$ANDROID_NDK_TARGET_DIR" && log_success "Android NDK已挂载到: $ANDROID_NDK_TARGET_DIR" || log_warning "Android NDK挂载失败，请手动解压或挂载"
+else
+    log_info "未检测到本地Android NDK包，使用系统默认或在线下载"
+fi
 
 # 执行打包
 log_info "执行buildozer打包..."

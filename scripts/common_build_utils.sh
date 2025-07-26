@@ -249,6 +249,14 @@ verify_and_prepare_all_dependencies() {
         "/tmp/SDL2_mixer-2.6.3.tar"
         "/tmp/SDL2_image-2.8.0.tar"
         "/tmp/SDL2_ttf-2.20.2.tar"
+        # 新增libwebp本地包
+        "/tmp/libwebp-1.3.2.tar.gz"
+    )
+    
+    # 新增OpenJDK17本地包检测
+    local openjdk_paths=(
+        "/tmp/OpenJDK17U-jdk_aarch64_mac_hotspot_17.0.2_8.tar.gz"
+        "/tmp/OpenJDK17U-jdk_x64_mac_hotspot_17.0.2_8.tar.gz"
     )
     
     for path in "${sdl2_paths[@]}"; do
@@ -267,6 +275,47 @@ verify_and_prepare_all_dependencies() {
                 *SDL2_ttf*.tar)
                     export SDL2_TTF_LOCAL_PATH="$path"
                     ;;
+                *libwebp*.tar.gz)
+                    export LIBWEBP_LOCAL_PATH="$path"
+                    ;;
+            esac
+        else
+            log_warning "未找到本地文件: $(basename $path)"
+        fi
+    done
+    
+    # 检测OpenJDK17本地包
+    for path in "${openjdk_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            log_success "找到本地文件: $(basename $path)"
+            case "$path" in
+                *aarch64*)
+                    export OPENJDK_AARCH64_LOCAL_PATH="$path"
+                    ;;
+                *x64*)
+                    export OPENJDK_X64_LOCAL_PATH="$path"
+                    ;;
+            esac
+        else
+            log_warning "未找到本地文件: $(basename $path)"
+        fi
+    done
+    
+    # 新增Android SDK/NDK本地包检测
+    local android_sdk_ndk_paths=(
+        "/tmp/commandlinetools-mac-10406996_latest.zip"
+        "/tmp/android-ndk-r25b-darwin.dmg"
+    )
+    for path in "${android_sdk_ndk_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            log_success "找到本地文件: $(basename $path)"
+            case "$path" in
+                *commandlinetools-mac*)
+                    export ANDROID_SDK_LOCAL_PATH="$path"
+                    ;;
+                *android-ndk*)
+                    export ANDROID_NDK_LOCAL_PATH="$path"
+                    ;;
             esac
         else
             log_warning "未找到本地文件: $(basename $path)"
@@ -274,12 +323,17 @@ verify_and_prepare_all_dependencies() {
     done
     
     # 显示环境变量
-    if [[ -n "$SDL2_LOCAL_PATH" ]]; then
-        log_info "SDL2本地文件配置:"
+    if [[ -n "$SDL2_LOCAL_PATH" || -n "$LIBWEBP_LOCAL_PATH" || -n "$OPENJDK_AARCH64_LOCAL_PATH" || -n "$OPENJDK_X64_LOCAL_PATH" || -n "$ANDROID_SDK_LOCAL_PATH" || -n "$ANDROID_NDK_LOCAL_PATH" ]]; then
+        log_info "本地依赖文件配置:"
         [[ -n "$SDL2_LOCAL_PATH" ]] && echo "  - SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
         [[ -n "$SDL2_MIXER_LOCAL_PATH" ]] && echo "  - SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
         [[ -n "$SDL2_IMAGE_LOCAL_PATH" ]] && echo "  - SDL2_IMAGE_LOCAL_PATH: $SDL2_IMAGE_LOCAL_PATH"
         [[ -n "$SDL2_TTF_LOCAL_PATH" ]] && echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
+        [[ -n "$LIBWEBP_LOCAL_PATH" ]] && echo "  - LIBWEBP_LOCAL_PATH: $LIBWEBP_LOCAL_PATH"
+        [[ -n "$OPENJDK_AARCH64_LOCAL_PATH" ]] && echo "  - OPENJDK_AARCH64_LOCAL_PATH: $OPENJDK_AARCH64_LOCAL_PATH"
+        [[ -n "$OPENJDK_X64_LOCAL_PATH" ]] && echo "  - OPENJDK_X64_LOCAL_PATH: $OPENJDK_X64_LOCAL_PATH"
+        [[ -n "$ANDROID_SDK_LOCAL_PATH" ]] && echo "  - ANDROID_SDK_LOCAL_PATH: $ANDROID_SDK_LOCAL_PATH"
+        [[ -n "$ANDROID_NDK_LOCAL_PATH" ]] && echo "  - ANDROID_NDK_LOCAL_PATH: $ANDROID_NDK_LOCAL_PATH"
     fi
 }
 

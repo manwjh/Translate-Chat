@@ -78,11 +78,24 @@ KV = '''
     elevation: 0
     # pos_hint: {"x": 0}  # 可选，已满宽无需定位
     MDLabel:
-        text: root.text
+        text: root.original_text
         font_style: 'Body2'
         font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: 1, 1, 1, 1
+        adaptive_height: True
+        size_hint_x: 1
+        size_hint_y: None
+        height: self.texture_size[1]
+        text_size: self.width, None
+        halign: 'left'
+        valign: 'middle'
+    MDLabel:
+        text: root.corrected_text if root.corrected_text and root.corrected_text != root.original_text else ''
+        font_style: 'Body1'
+        font_name: 'NotoSansSC'
+        theme_text_color: 'Custom'
+        text_color: 0.8, 0.9, 0.8, 1
         adaptive_height: True
         size_hint_x: 1
         size_hint_y: None
@@ -348,7 +361,14 @@ class MainWidget(MDBoxLayout):
                         if self.get_app_show_translation():
                             src_lang = self.lang_detect.detect(utt['text'])
                             tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
-                            utt['translation'] = await self.translator.translate(utt['text'], src_lang=src_lang, tgt_lang=tgt_lang)
+                            translation_result = await self.translator.translate(utt['text'], src_lang=src_lang, tgt_lang=tgt_lang)
+                            # 从翻译结果字典中提取翻译文本
+                            if isinstance(translation_result, dict):
+                                utt['translation'] = translation_result.get('translation', '')
+                                utt['corrected'] = translation_result.get('corrected', '')
+                            else:
+                                utt['translation'] = translation_result or ''
+                                utt['corrected'] = ''
                         else:
                             utt['translation'] = None
                         updated = True
@@ -368,7 +388,14 @@ class MainWidget(MDBoxLayout):
                     if self.get_app_show_translation():
                         src_lang = self.lang_detect.detect(last_text)
                         tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
-                        utterance['translation'] = await self.translator.translate(last_text, src_lang=src_lang, tgt_lang=tgt_lang)
+                        translation_result = await self.translator.translate(last_text, src_lang=src_lang, tgt_lang=tgt_lang)
+                        # 从翻译结果字典中提取翻译文本
+                        if isinstance(translation_result, dict):
+                            utterance['translation'] = translation_result.get('translation', '')
+                            utterance['corrected'] = translation_result.get('corrected', '')
+                        else:
+                            utterance['translation'] = translation_result or ''
+                            utterance['corrected'] = ''
                     self._show_asr_utterances([utterance])
                     no_update_count = 0
                     last_emit_time = now
@@ -400,15 +427,16 @@ class MainWidget(MDBoxLayout):
         print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
         # 1. 固化分句：增量添加到 final_bubbles，历史内容不丢失
         for utt in utterances:
-            text = utt.get('text', '')
+            original_text = utt.get('text', '')
             definite = utt.get('definite', False)
             translation = utt.get('translation', None)
+            corrected_text = utt.get('corrected', '')  # 获取纠错后的原文
             timeout_tip = '超时自动固化' if utt.get('timeout_finalize', False) else ''
             start_time = utt.get('start_time')
             end_time = utt.get('end_time')
-            key = (text, start_time, end_time)
-            if definite and text and key not in self.final_utterance_keys:
-                bubble = self.create_bubble(text, translation, timeout_tip)
+            key = (original_text, start_time, end_time)
+            if definite and original_text and key not in self.final_utterance_keys:
+                bubble = self.create_bubble(original_text, corrected_text, translation, timeout_tip)
                 self.final_bubbles.append(bubble)
                 self.final_utterance_keys.add(key)
         # 2. 清空并重绘所有固化分句
@@ -428,8 +456,13 @@ class MainWidget(MDBoxLayout):
             self.scroll_to_bottom()
         print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
 
-    def create_bubble(self, text, translation, timeout_tip):
-        return ChatBubble(text=clean_text(text), translation=translation or '', timeout_tip=timeout_tip or '')
+    def create_bubble(self, original_text, corrected_text, translation, timeout_tip):
+        return ChatBubble(
+            original_text=clean_text(original_text), 
+            corrected_text=clean_text(corrected_text) if corrected_text else '',
+            translation=translation or '', 
+            timeout_tip=timeout_tip or ''
+        )
 
     @mainthread
     def scroll_to_bottom(self):
@@ -441,16 +474,19 @@ class MainWidget(MDBoxLayout):
         if 'ctrl' in modifiers and codepoint in ('c', 'C'):
             for bubble in self.final_bubbles:
                 if getattr(bubble, 'selected', False):
-                    # 复制内容，可自定义复制 text/translation/合并
-                    copy_text = bubble.text
+                    # 复制内容：原文 + 纠错 + 翻译
+                    copy_text = bubble.original_text
+                    if bubble.corrected_text and bubble.corrected_text != bubble.original_text:
+                        copy_text += '\n纠错: ' + bubble.corrected_text
                     if bubble.translation:
-                        copy_text += '\n' + bubble.translation
+                        copy_text += '\n翻译: ' + bubble.translation
                     Clipboard.copy(copy_text)
                     print("已复制到剪贴板:", copy_text)
                     break
 
 class ChatBubble(HoverBehavior, MDCard):
-    text = StringProperty()
+    original_text = StringProperty()
+    corrected_text = StringProperty()
     translation = StringProperty()
     timeout_tip = StringProperty()
     selected = BooleanProperty(False)

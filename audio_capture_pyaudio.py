@@ -74,7 +74,7 @@ class AudioStream:
     def on_audio(self, data):
         pass
 
-    async def audio_stream_generator(self, chunk_ms=100):
+    async def audio_stream_generator(self, chunk_ms=200):
         bytes_per_ms = self.rate * self.channels * 2 // 1000
         chunk_bytes = bytes_per_ms * chunk_ms
         buf = b""
