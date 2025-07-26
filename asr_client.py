@@ -12,7 +12,7 @@ import struct
 import gzip
 import uuid
 import json
-from config import ASR_WS_URL, ASR_APP_KEY, ASR_ACCESS_KEY, ASR_SAMPLE_RATE
+from config_manager import config_manager
 import logging
 
 # 新增导入
@@ -93,8 +93,8 @@ class RequestBuilder:
         return {
             "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
             "X-Api-Request-Id": reqid,
-            "X-Api-Access-Key": ASR_ACCESS_KEY,
-            "X-Api-App-Key": ASR_APP_KEY
+            "X-Api-Access-Key": config_manager.get('ASR_ACCESS_KEY'),
+            "X-Api-App-Key": config_manager.get('ASR_APP_KEY')
         }
 
     @staticmethod

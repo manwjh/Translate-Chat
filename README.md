@@ -20,6 +20,7 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 🔄 一键重置、翻译显示开关
 - 📱 跨平台支持：桌面（PyAudio）、Android（Plyer）
 - 🔥 热词检测与说话人切换检测
+- 🔒 智能令牌管理（动态刷新、过期处理）
 - 📦 自动化打包脚本（Ubuntu/macOS）
 
 ---
@@ -31,6 +32,8 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 📚 新增开发文档和打包说明
 - 🔧 优化 buildozer 配置
 - 🆕 新增热词检测和说话人切换检测功能
+- 🔒 新增令牌管理功能，支持动态令牌刷新和过期处理
+- 🛡️ 修复安全漏洞，移除硬编码API密钥
 - 🐛 修复界面显示问题
 - 📝 完善项目文档结构
 
@@ -49,8 +52,8 @@ Translate-Chat/
   ├── audio_capture.py             # 跨平台音频采集入口
   ├── audio_capture_pyaudio.py     # 桌面端音频采集实现
   ├── audio_capture_plyer.py       # Android音频采集实现
-  ├── config_template.py           # 配置模板（请复制为config.py）
-  ├── config.py                    # 实际配置（含密钥，勿上传）
+  
+  
   ├── lang_detect.py               # 语言检测
   ├── main.py                      # 程序主入口（KivyMD UI）
   ├── hotwords.py                  # 热词检测功能
@@ -107,14 +110,18 @@ pip install -r requirements-android.txt -i https://pypi.tuna.tsinghua.edu.cn/sim
 
 ### 3. 配置API密钥
 ```bash
-# 复制配置模板
-cp config_template.py config.py
+# 方式一：使用图形界面配置（推荐）
+python3 setup_config.py
 
-# 编辑配置文件，填入你的API密钥
-# 或设置环境变量
+# 方式二：使用配置脚本
+bash scripts/setup_env.sh -i
+
+# 方式三：手动设置环境变量
 export ASR_APP_KEY=你的ASR_APP_KEY
 export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 export LLM_API_KEY=你的LLM_API_KEY
+
+
 ```
 
 ### 4. 运行程序
@@ -180,18 +187,120 @@ bash scripts/build_android_macos.sh
 
 ## API密钥配置 / API Key Configuration
 
-请在运行前设置以下环境变量，或复制 `config_template.py` 为 `config.py` 并填写密钥：
-- `ASR_APP_KEY` - 火山引擎ASR应用密钥
-- `ASR_ACCESS_KEY` - 火山引擎访问密钥
-- `LLM_API_KEY` - 大语言模型API密钥
+本系统支持三种配置方式，按优先级排序：
 
-示例（Linux/macOS终端）：
+### 配置优先级机制
+
+**重要说明**: 系统按以下优先级加载配置，最终所有配置都会统一存储在配置管理器中：
+
+1. **环境变量** (最高优先级) - 存储在操作系统环境变量中
+2. **config.py文件** (中等优先级) - 存储在项目目录的config.py文件中  
+3. **默认配置** (最低优先级) - 硬编码在代码中（仅用于开发测试）
+
+**统一存储**: 无论使用哪种配置方式，最终所有配置都会被统一存储在 `config_manager.config` 字典中，确保配置访问的一致性和统一性。
+
+### 方式一：环境变量配置（推荐）
+
+#### 使用图形界面配置（最简单）
+```bash
+# 启动图形配置界面
+python3 setup_config.py
+```
+
+#### 使用配置脚本
+```bash
+# macOS/Linux/Android
+bash scripts/setup_env.sh -i
+
+# Windows
+scripts\setup_env.bat -i
+```
+
+#### 手动设置环境变量
+
+**macOS/Linux/Android:**
 ```bash
 export ASR_APP_KEY=你的ASR_APP_KEY
 export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 export LLM_API_KEY=你的LLM_API_KEY
+export ASR_APP_ID=你的ASR_APP_ID  # 可选
 ```
-> ⚠️ 建议不要将密钥写入代码或上传到GitHub。
+
+**Windows (PowerShell):**
+```powershell
+$env:ASR_APP_KEY="你的ASR_APP_KEY"
+$env:ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
+$env:LLM_API_KEY="你的LLM_API_KEY"
+$env:ASR_APP_ID="你的ASR_APP_ID"  # 可选
+```
+
+**Windows (CMD):**
+```cmd
+set ASR_APP_KEY=你的ASR_APP_KEY
+set ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
+set LLM_API_KEY=你的LLM_API_KEY
+set ASR_APP_ID=你的ASR_APP_ID  # 可选
+```
+
+
+
+### 配置检查
+
+```bash
+# macOS/Linux/Android
+bash scripts/setup_env.sh -c
+
+# Windows
+scripts\setup_env.bat -c
+```
+
+### 配置机制详解
+
+#### 配置加载流程
+```
+启动程序 → 配置管理器初始化 → 按优先级检查配置源:
+    1. 检查环境变量 → 如果存在，加载到config_manager.config
+    2. 使用默认配置 → 如果环境变量不存在，加载到config_manager.config
+    ↓
+所有模块通过config_manager.config访问配置
+```
+
+#### 令牌管理机制
+系统支持智能令牌管理，包括：
+- **动态令牌刷新**：自动检测令牌状态，支持实时刷新
+- **过期处理**：令牌过期时自动重新获取，确保服务连续性
+- **安全存储**：令牌仅存储在内存中，不写入文件
+- **环境变量优先**：优先使用环境变量中的令牌，确保安全性
+
+#### 配置访问方式
+```python
+# 通过配置管理器访问
+from config_manager import config_manager
+value = config_manager.get('ASR_APP_KEY')
+```
+
+#### 存储位置说明
+| 配置方式 | 原始存储位置 | 最终统一存储位置 |
+|---------|-------------|-----------------|
+| **环境变量** | 操作系统环境变量 | config_manager.config |
+| **默认配置** | 代码中硬编码 | config_manager.config |
+
+> ⚠️ 建议使用环境变量方式，避免将密钥写入代码或上传到GitHub。
+
+### 🔒 安全说明 / Security Notes
+
+**重要安全提醒**：
+- ✅ **已修复**：移除了代码中的硬编码API密钥
+- ✅ **推荐**：使用环境变量方式配置API密钥
+- ✅ **安全**：令牌仅存储在内存中，不写入文件
+- ⚠️ **注意**：请勿将真实的API密钥提交到版本控制系统
+- ⚠️ **注意**：定期更换API密钥，确保账户安全
+
+**令牌管理最佳实践**：
+1. 使用环境变量存储API密钥
+2. 定期检查令牌有效性
+3. 及时更新过期的令牌
+4. 避免在日志中输出敏感信息
 
 ---
 
@@ -216,6 +325,15 @@ python3 main.py
 
 ---
 
+## 试验模块 / Experimental Modules
+
+1. **speaker_change_detector.py** - 人声切换检测
+   - 基于 Resemblyzer 和 WebRTC VAD 的说话人变化检测
+   - 支持实时音频流处理
+   - 可配置的检测阈值和参数
+
+---
+
 ## 开发文档 / Development Docs
 
 - 📖 [Linux开发指南](docs/linux_dev_guide.md) - Linux环境开发、运行和打包
@@ -230,7 +348,7 @@ python3 main.py
 - 字体已内置于 `assets/fonts/`
 - `font_test.py` 可用于测试字体显示
 - 旧版 `requirements.txt`、`ui/main_window.py` 已废弃
-- 配置模板请参考 `config_template.py`
+
 - 开发文档见 `docs/` 目录，包含各平台开发、运行与打包说明
 
 ---

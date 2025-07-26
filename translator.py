@@ -9,7 +9,7 @@
 import aiohttp
 import asyncio
 import logging
-from config import TRANSLATE_API_URL, LLM_API_KEY, LLM_MODEL
+from config_manager import config_manager
 
 # 日志配置
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
@@ -47,11 +47,11 @@ class Translator:
 """
 
         headers = {
-            "Authorization": f"Bearer {LLM_API_KEY}",
+            "Authorization": f"Bearer {config_manager.get('LLM_API_KEY')}",
             "Content-Type": "application/json"
         }
         payload = {
-            "model": LLM_MODEL,
+            "model": config_manager.get('LLM_MODEL'),
             "messages": [
                 {"role": "system", "content": "你是一个高精度的翻译助手，只输出翻译结果。"},
                 {"role": "user", "content": prompt.strip()}
@@ -61,7 +61,7 @@ class Translator:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    TRANSLATE_API_URL,
+                    config_manager.get('TRANSLATE_API_URL'),
                     headers=headers,
                     json=payload,
                     timeout=15
