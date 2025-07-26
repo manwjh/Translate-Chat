@@ -46,9 +46,22 @@ echo ""
 
 # 环境检查
 echo "==== 1. 环境检查 ===="
+log_info "开始环境检查..."
+
+# 检查环境并获取Python命令
 PYTHON_CMD=$(check_environment)
-if [[ $? -ne 0 ]]; then
+local check_result=$?
+
+log_info "环境检查结果: $check_result"
+log_info "返回的Python命令: '$PYTHON_CMD'"
+
+if [[ $check_result -ne 0 ]]; then
     log_error "环境检查失败，请修复问题后重试"
+    exit 1
+fi
+
+if [[ -z "$PYTHON_CMD" ]]; then
+    log_error "未获取到有效的Python命令"
     exit 1
 fi
 

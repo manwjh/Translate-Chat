@@ -383,7 +383,7 @@ check_environment() {
             if check_python_version "$new_python_cmd"; then
                 log_success "Python环境检查通过"
                 # 返回新安装的Python命令
-                echo "$new_python_cmd"
+                printf "%s" "$new_python_cmd"
                 return 0
             else
                 log_error "Python环境检查失败"
@@ -396,7 +396,7 @@ check_environment() {
         fi
     else
         log_success "Python环境检查通过"
-        echo "$python_cmd"
+        printf "%s" "$python_cmd"
         return 0
     fi
 }
