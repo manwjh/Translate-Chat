@@ -7,6 +7,9 @@
 
 set -e
 
+# 开启调试模式（可选，取消注释以启用）
+# set -x
+
 # 引入通用打包工具函数
 source ./scripts/common_build_utils.sh
 
@@ -31,6 +34,14 @@ if [[ ! -f "main.py" ]]; then
 fi
 
 log_success "确认在项目根目录运行"
+echo ""
+
+# 显示系统信息
+log_info "系统信息:"
+log_info "  系统: $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
+log_info "  架构: $(uname -m)"
+log_info "  内核: $(uname -r)"
+log_info "  当前用户: $(whoami)"
 echo ""
 
 # 环境检查

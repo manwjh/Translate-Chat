@@ -100,14 +100,23 @@ install_compatible_python() {
         # 添加deadsnakes PPA
         if ! grep -q "deadsnakes" /etc/apt/sources.list.d/* 2>/dev/null; then
             log_info "添加deadsnakes PPA..."
-            sudo add-apt-repository ppa:deadsnakes/ppa -y
-            sudo apt update
+            if ! sudo add-apt-repository ppa:deadsnakes/ppa -y; then
+                log_error "添加deadsnakes PPA失败"
+                return 1
+            fi
+            if ! sudo apt update; then
+                log_error "更新包列表失败"
+                return 1
+            fi
         fi
         
         # 安装Python 3.10
         if ! command -v python3.10 &> /dev/null; then
             log_info "安装Python 3.10..."
-            sudo apt install -y python3.10 python3.10-venv python3.10-dev python3.10-pip
+            if ! sudo apt install -y python3.10 python3.10-venv python3.10-dev python3.10-pip; then
+                log_error "安装Python 3.10失败"
+                return 1
+            fi
         fi
         
         # 检查安装结果
@@ -131,7 +140,10 @@ install_compatible_python() {
         
         if ! brew list --versions python@3.10 >/dev/null; then
             log_info "安装Python 3.10..."
-            brew install python@3.10
+            if ! brew install python@3.10; then
+                log_error "安装Python 3.10失败"
+                return 1
+            fi
         fi
         
         # 检查安装结果
@@ -355,10 +367,17 @@ check_environment() {
     
     # 检查Python
     local python_cmd="python3"
+    log_info "开始检查Python环境..."
+    
     if ! check_python_version "$python_cmd"; then
         log_warning "当前Python版本不兼容，尝试自动安装合适的版本..."
-        local new_python_cmd=$(install_compatible_python)
-        if [[ $? -eq 0 && -n "$new_python_cmd" ]]; then
+        local new_python_cmd
+        new_python_cmd=$(install_compatible_python)
+        local install_result=$?
+        
+        log_info "安装结果: $install_result, 新Python命令: '$new_python_cmd'"
+        
+        if [[ $install_result -eq 0 && -n "$new_python_cmd" ]]; then
             log_success "使用新安装的Python: $new_python_cmd"
             # 重新检查版本
             if check_python_version "$new_python_cmd"; then
@@ -385,7 +404,26 @@ check_environment() {
 # 错误处理函数
 handle_error() {
     local exit_code=$?
-    log_error "构建过程中发生错误 (退出码: $exit_code)"
+    local line_number=${BASH_LINENO[0]}
+    local script_name=${BASH_SOURCE[1]}
+    
+    log_error "构建过程中发生错误"
+    log_error "退出码: $exit_code"
+    log_error "错误位置: $script_name:$line_number"
+    
+    # 显示最近的命令
+    log_info "最近的命令:"
+    if [[ -n "$BASH_COMMAND" ]]; then
+        log_info "  $BASH_COMMAND"
+    fi
+    
+    # 显示环境信息
+    log_info "环境信息:"
+    log_info "  系统: $(detect_system)"
+    log_info "  当前目录: $(pwd)"
+    log_info "  Python: $(which python3 2>/dev/null || echo '未找到')"
+    log_info "  Java: $(which java 2>/dev/null || echo '未找到')"
+    
     log_info "请检查日志并修复问题后重试"
     exit $exit_code
 }
