@@ -50,7 +50,7 @@ log_info "开始环境检查..."
 
 # 检查环境并获取Python命令
 PYTHON_CMD=$(check_environment)
-local check_result=$?
+check_result=$?
 
 log_info "环境检查结果: $check_result"
 log_info "返回的Python命令: '$PYTHON_CMD'"
