@@ -40,6 +40,23 @@ if ! check_environment; then
     exit 1
 fi
 
+# 获取合适的Python命令
+get_python_cmd() {
+    # 优先检查Python 3.10
+    if command -v python3.10 &> /dev/null; then
+        echo "python3.10"
+    elif command -v python3.11 &> /dev/null; then
+        echo "python3.11"
+    elif command -v python3.9 &> /dev/null; then
+        echo "python3.9"
+    else
+        echo "python3"
+    fi
+}
+
+PYTHON_CMD=$(get_python_cmd)
+log_info "使用Python命令: $PYTHON_CMD"
+
 # 配置pip镜像
 echo "==== 2. 配置pip镜像 ===="
 setup_pip_mirror
@@ -60,9 +77,6 @@ log_info "安装系统依赖..."
 
 # 基础工具
 sudo apt install -y \
-    python3 \
-    python3-venv \
-    python3-pip \
     git \
     unzip \
     build-essential \
@@ -122,7 +136,7 @@ setup_java_env
 
 # 创建Python虚拟环境
 echo "==== 7. 创建Python虚拟环境 ===="
-create_venv "python3" "venv"
+create_venv "$PYTHON_CMD" "venv"
 
 # 安装Python依赖
 echo "==== 8. 安装Python依赖 ===="

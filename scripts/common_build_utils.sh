@@ -57,7 +57,75 @@ check_python_version() {
         log_success "Python版本兼容: $version"
         return 0
     else
-        log_error "Python版本不兼容: $version (需要Python 3.9-3.11)"
+        log_warning "Python版本不兼容: $version (需要Python 3.9-3.11)"
+        return 1
+    fi
+}
+
+# 自动安装合适的Python版本
+install_compatible_python() {
+    local system=$(detect_system)
+    local target_version="3.10"
+    
+    log_info "尝试自动安装Python $target_version..."
+    
+    if [[ "$system" == "ubuntu" ]]; then
+        # Ubuntu: 使用deadsnakes PPA安装Python 3.10
+        log_info "在Ubuntu上安装Python $target_version..."
+        
+        # 添加deadsnakes PPA
+        if ! grep -q "deadsnakes" /etc/apt/sources.list.d/* 2>/dev/null; then
+            log_info "添加deadsnakes PPA..."
+            sudo add-apt-repository ppa:deadsnakes/ppa -y
+            sudo apt update
+        fi
+        
+        # 安装Python 3.10
+        if ! command -v python3.10 &> /dev/null; then
+            log_info "安装Python 3.10..."
+            sudo apt install -y python3.10 python3.10-venv python3.10-dev python3.10-pip
+        fi
+        
+        # 检查安装结果
+        if command -v python3.10 &> /dev/null; then
+            log_success "Python 3.10安装成功"
+            echo "python3.10"
+            return 0
+        else
+            log_error "Python 3.10安装失败"
+            return 1
+        fi
+        
+    elif [[ "$system" == "macos" ]]; then
+        # macOS: 使用Homebrew安装Python 3.10
+        log_info "在macOS上安装Python $target_version..."
+        
+        if ! command -v brew &> /dev/null; then
+            log_error "Homebrew未安装，请先安装Homebrew"
+            return 1
+        fi
+        
+        if ! brew list --versions python@3.10 >/dev/null; then
+            log_info "安装Python 3.10..."
+            brew install python@3.10
+        fi
+        
+        # 检查安装结果
+        if [[ -f "/opt/homebrew/bin/python3.10" ]]; then
+            log_success "Python 3.10安装成功"
+            echo "/opt/homebrew/bin/python3.10"
+            return 0
+        elif [[ -f "/usr/local/bin/python3.10" ]]; then
+            log_success "Python 3.10安装成功"
+            echo "/usr/local/bin/python3.10"
+            return 0
+        else
+            log_error "Python 3.10安装失败"
+            return 1
+        fi
+        
+    else
+        log_error "不支持的系统类型: $system"
         return 1
     fi
 }
@@ -264,8 +332,23 @@ check_environment() {
     # 检查Python
     local python_cmd="python3"
     if ! check_python_version "$python_cmd"; then
-        log_error "Python环境检查失败"
-        return 1
+        log_warning "当前Python版本不兼容，尝试自动安装合适的版本..."
+        local new_python_cmd=$(install_compatible_python)
+        if [[ $? -eq 0 && -n "$new_python_cmd" ]]; then
+            log_success "使用新安装的Python: $new_python_cmd"
+            python_cmd="$new_python_cmd"
+            # 重新检查版本
+            if check_python_version "$python_cmd"; then
+                log_success "Python环境检查通过"
+            else
+                log_error "Python环境检查失败"
+                return 1
+            fi
+        else
+            log_error "无法安装合适的Python版本"
+            log_info "请手动安装Python 3.9-3.11版本后重试"
+            return 1
+        fi
     fi
     
     # 检查Java
@@ -297,4 +380,4 @@ export -f log_info log_success log_warning log_error
 export -f detect_system check_python_version check_java_version
 export -f setup_java_env setup_pip_mirror verify_and_prepare_all_dependencies
 export -f create_venv install_python_deps clean_build_cache check_build_result
-export -f check_environment handle_error 
+export -f check_environment handle_error install_compatible_python 

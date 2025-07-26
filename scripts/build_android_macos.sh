@@ -40,6 +40,29 @@ if ! check_environment; then
     exit 1
 fi
 
+# 获取合适的Python命令
+get_python_cmd() {
+    # 优先检查Python 3.10
+    if [[ -f "/opt/homebrew/bin/python3.10" ]]; then
+        echo "/opt/homebrew/bin/python3.10"
+    elif [[ -f "/usr/local/bin/python3.10" ]]; then
+        echo "/usr/local/bin/python3.10"
+    elif [[ -f "/opt/homebrew/bin/python3.11" ]]; then
+        echo "/opt/homebrew/bin/python3.11"
+    elif [[ -f "/usr/local/bin/python3.11" ]]; then
+        echo "/usr/local/bin/python3.11"
+    elif [[ -f "/opt/homebrew/bin/python3.9" ]]; then
+        echo "/opt/homebrew/bin/python3.9"
+    elif [[ -f "/usr/local/bin/python3.9" ]]; then
+        echo "/usr/local/bin/python3.9"
+    else
+        echo "/opt/homebrew/bin/python3"
+    fi
+}
+
+PYTHON_CMD=$(get_python_cmd)
+log_info "使用Python命令: $PYTHON_CMD"
+
 # 配置pip镜像
 echo "==== 2. 配置pip镜像 ===="
 setup_pip_mirror
@@ -61,22 +84,6 @@ if ! command -v brew &> /dev/null; then
     log_error "Homebrew未安装，请先安装Homebrew"
     log_info "安装命令: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     exit 1
-fi
-
-# 安装Python 3.10 (推荐版本，兼容性最好)
-if ! brew list --versions python@3.10 >/dev/null; then
-    log_info "安装Python 3.10..."
-    brew install python@3.10
-else
-    log_success "Python 3.10已安装"
-fi
-
-# 安装JDK 17
-if ! brew list --versions openjdk@17 >/dev/null; then
-    log_info "安装openjdk@17..."
-    brew install openjdk@17
-else
-    log_success "openjdk@17已安装"
 fi
 
 # 安装其他必要依赖
@@ -106,7 +113,7 @@ fi
 
 # 创建Python虚拟环境
 echo "==== 5. 创建Python虚拟环境 ===="
-create_venv "/opt/homebrew/bin/python3.10" "venv"
+create_venv "$PYTHON_CMD" "venv"
 
 # 安装Python依赖
 echo "==== 6. 安装Python依赖 ===="

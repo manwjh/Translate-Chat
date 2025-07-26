@@ -19,8 +19,8 @@ scripts/
 ## 环境要求
 
 ### 统一环境配置
-- **Python**: 3.9-3.11 (推荐3.10)
-- **Java**: JDK 11+ (推荐JDK 17)
+- **Python**: 3.9-3.11 (推荐3.10) - **脚本会自动安装**
+- **Java**: JDK 11+ (推荐JDK 17) - **脚本会自动安装**
 - **Buildozer**: 1.5.0
 - **Cython**: 0.29.36
 - **pyjnius**: >=1.5.0
@@ -29,14 +29,26 @@ scripts/
 
 #### macOS
 - Homebrew
-- Python 3.10: `brew install python@3.10`
-- JDK 17: `brew install openjdk@17`
-- openssl@1.1: `brew install openssl@1.1`
+- Python 3.10: **脚本自动安装**
+- JDK 17: **脚本自动安装**
+- openssl@1.1: **脚本自动安装**
 
 #### Ubuntu
-- Python 3.10+
-- JDK 17: `sudo apt install openjdk-17-jdk`
-- 系统依赖包 (脚本自动安装)
+- Python 3.10+: **脚本自动安装**
+- JDK 17: **脚本自动安装**
+- 系统依赖包: **脚本自动安装**
+
+### 自动化特性
+
+脚本具备以下自动化功能：
+
+1. **自动检测系统环境**
+2. **自动安装合适的Python版本** (3.9-3.11)
+3. **自动安装Java环境** (JDK 11+)
+4. **自动配置pip镜像** (清华源)
+5. **自动安装系统依赖**
+6. **自动创建虚拟环境**
+7. **自动处理pyjnius兼容性问题**
 
 ## 使用方法
 
