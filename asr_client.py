@@ -15,6 +15,10 @@ import json
 from config_manager import config_manager
 import logging
 
+# 从配置管理器获取常量
+ASR_WS_URL = config_manager.get('ASR_WS_URL')
+ASR_SAMPLE_RATE = config_manager.get('ASR_SAMPLE_RATE')
+
 # 新增导入
 #from speaker_change_detector import SpeakerChangeDetector
 

@@ -1,7 +1,24 @@
-PyQt6
-websocket-client
-aiohttp
+# =============================================================
+# 文件名(File): requirements-android.txt
+# 版本(Version): v1.0.1
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/1/27
+# 简介(Description): Android版依赖包列表 - 修复pyjnius编译问题
+# =============================================================
+
+# 核心依赖
 kivy>=2.3.0
 kivymd==1.1.1
-plyer>=2.1.0
-ffpyplayer>=4.5.0 
+websocket-client
+aiohttp
+
+# 加密存储
+cryptography>=3.4.8
+
+# 其他工具
+requests
+
+# 修复pyjnius编译问题的兼容版本
+# 这些版本限制可以避免Cython编译时的long类型错误
+cython<3.0
+pyjnius<1.5 

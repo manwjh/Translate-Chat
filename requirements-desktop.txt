@@ -1,6 +1,22 @@
-PyQt6
+# =============================================================
+# 文件名(File): requirements-desktop.txt
+# 版本(Version): v1.0.0
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/1/27
+# 简介(Description): 桌面版依赖包列表
+# =============================================================
+
+# 核心依赖
+kivy>=2.3.0
+kivymd==1.1.1
 websocket-client
 aiohttp
-PyAudio>=0.2.14
-kivymd==1.1.1 
-# numpy 
+
+# 音频处理
+pyaudio
+
+# 加密存储
+cryptography>=3.4.8
+
+# 其他工具
+requests 

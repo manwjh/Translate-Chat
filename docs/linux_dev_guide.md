@@ -53,7 +53,7 @@ pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/sim
 
 ## 2. 配置 API 密钥
 
-- 复制 `config_template.py` 为 `config.py`，填写火山 ASR/LLM 密钥
+- 使用环境变量配置火山 ASR/LLM 密钥（推荐使用 `setup_config.py` 图形界面）
 - 或设置环境变量（推荐）
 
 ```bash

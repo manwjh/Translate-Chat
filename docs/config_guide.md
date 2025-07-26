@@ -123,14 +123,19 @@ echo 'export LLM_API_KEY="你的LLM_API_KEY"' >> ~/.bashrc
 
 ## 方式二：配置文件方式
 
-### 2.1 创建配置文件
+### 2.1 配置方式（推荐使用环境变量）
 
 ```bash
-# 复制配置模板
-cp config_template.py config.py
+# 方式一：使用图形界面配置（推荐）
+python3 setup_config.py
 
-# 编辑配置文件
-# 使用你喜欢的编辑器编辑 config.py
+# 方式二：使用配置脚本
+bash scripts/setup_env.sh -i
+
+# 方式三：手动设置环境变量
+export ASR_APP_KEY="你的ASR_APP_KEY"
+export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
+export LLM_API_KEY="你的LLM_API_KEY"
 ```
 
 ### 2.2 配置文件内容示例
@@ -189,17 +194,15 @@ print('LLM_API_KEY:', os.environ.get('LLM_API_KEY', '未设置'))
 
 系统按以下优先级加载配置：
 
-1. **环境变量** - 最高优先级
-2. **config.py 文件** - 中等优先级
-3. **默认配置** - 最低优先级（仅用于开发测试）
+1. **环境变量** - 最高优先级（推荐）
+2. **默认配置** - 最低优先级（仅用于开发测试，不包含敏感信息）
 
 ### 配置加载流程详解
 
 ```
 启动程序 → 配置管理器初始化 → 按优先级检查配置源:
     1. 检查环境变量 → 如果存在，加载到config_manager.config
-    2. 检查config.py → 如果环境变量不存在，加载到config_manager.config  
-    3. 使用默认配置 → 如果前两者都不存在，加载到config_manager.config
+    2. 使用默认配置 → 如果环境变量不存在，加载到config_manager.config
     ↓
 所有模块通过config_manager.config访问配置
 ```

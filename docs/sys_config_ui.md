@@ -194,8 +194,8 @@ export LLM_API_KEY="你的密钥"
 
 ### 3. 编辑配置文件
 ```bash
-cp config_template.py config.py
-# 编辑 config.py 文件
+# 使用环境变量配置（推荐）
+# 或使用 setup_config.py 图形界面配置
 ```
 
 ---

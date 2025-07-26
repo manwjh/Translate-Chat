@@ -23,8 +23,7 @@ android.permissions = INTERNET,RECORD_AUDIO,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL
 android.api = 31
 android.minapi = 21
 android.ndk = 25b
-android.sdk = 33
-android.arch = arm64-v8a
+android.archs = arm64-v8a, armeabi-v7a
 
 # 应用图标和启动画面
 android.presplash_color = #FFFFFF

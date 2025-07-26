@@ -1,8 +1,10 @@
-# Translate Chat 语音实时翻译对照软件
+# Translate-Chat
 
-**版本：v0.1.1**  
-**作者：深圳王哥 & AI**  
-**创建日期：2025/7/25**  
+**文件名(File):** README.md  
+**版本(Version):** v0.1.3  
+**作者(Author):** 深圳王哥 & AI  
+**创建日期(Created):** 2025/1/27  
+**简介(Description):** 基于火山引擎ASR和LLM的实时语音翻译工具，支持多语言互译
 
 ---
 
@@ -36,6 +38,7 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 🛡️ 修复安全漏洞，移除硬编码API密钥
 - 🐛 修复界面显示问题
 - 📝 完善项目文档结构
+
 
 ### v0.1.0 (2025/1/25)
 - 🎉 初始版本发布
@@ -74,6 +77,7 @@ Translate-Chat/
   ├── scripts/
   │     ├── build_android_ubuntu.sh # Ubuntu打包脚本
   │     ├── build_android_macos.sh  # macOS打包脚本
+  │     ├── sdl2_local_manager.sh   # SDL2本地文件管理脚本
   │     ├── buildozer.spec         # 脚本专用配置
   │     └── README.md              # 打包脚本说明
   ├── docs/
@@ -162,6 +166,22 @@ bash scripts/build_android_macos.sh
 - 🇨🇳 **国内镜像**：使用清华源加速下载
 - 📱 **跨平台支持**：Ubuntu 和 macOS 双平台
 - 📚 **详细文档**：完整的使用说明和故障排除
+- 📦 **SDL2本地管理**：智能检查并下载SDL2依赖文件
+
+### SDL2 本地文件管理
+
+在打包Android应用之前，建议先运行SDL2本地文件管理脚本，以加速构建过程：
+
+```bash
+# 检查并下载SDL2依赖文件
+bash scripts/sdl2_local_manager.sh
+```
+
+**脚本功能**：
+- 🔍 **智能检查**：检查 `/tmp` 目录下是否已存在SDL2文件
+- ⬇️ **按需下载**：只下载缺失的文件，避免重复下载
+- 🔄 **重试机制**：下载失败时自动重试，提高成功率
+- 🌐 **国内镜像**：使用GitHub官方源，确保文件完整性
 
 详细说明请参考：[scripts/README.md](scripts/README.md)
 
@@ -194,8 +214,7 @@ bash scripts/build_android_macos.sh
 **重要说明**: 系统按以下优先级加载配置，最终所有配置都会统一存储在配置管理器中：
 
 1. **环境变量** (最高优先级) - 存储在操作系统环境变量中
-2. **config.py文件** (中等优先级) - 存储在项目目录的config.py文件中  
-3. **默认配置** (最低优先级) - 硬编码在代码中（仅用于开发测试）
+2. **默认配置** (最低优先级) - 硬编码在代码中（仅用于开发测试，不包含敏感信息）
 
 **统一存储**: 无论使用哪种配置方式，最终所有配置都会被统一存储在 `config_manager.config` 字典中，确保配置访问的一致性和统一性。
 
@@ -283,7 +302,7 @@ value = config_manager.get('ASR_APP_KEY')
 | 配置方式 | 原始存储位置 | 最终统一存储位置 |
 |---------|-------------|-----------------|
 | **环境变量** | 操作系统环境变量 | config_manager.config |
-| **默认配置** | 代码中硬编码 | config_manager.config |
+| **默认配置** | 代码中硬编码（不含敏感信息） | config_manager.config |
 
 > ⚠️ 建议使用环境变量方式，避免将密钥写入代码或上传到GitHub。
 

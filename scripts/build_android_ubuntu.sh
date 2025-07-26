@@ -1,7 +1,7 @@
 #!/bin/bash
 # Translate Chat - Ubuntu Android 打包自动化脚本
 # 文件名(File): build_android_ubuntu.sh
-# 版本(Version): v1.0.0
+# 版本(Version): v1.0.1
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/1/27
 # 简介(Description): Ubuntu环境下Android APK自动化打包脚本，支持SDL2本地文件优先
@@ -13,6 +13,7 @@ verify_sdl2_local_files() {
     local sdl2_files=(
         "SDL2-2.28.5.tar"
         "SDL2_image-2.8.0.tar"
+        "SDL_image-release-2.0.tar"  # 兼容新版本命名
         "SDL2_mixer-2.6.3.tar"
         "SDL2_ttf-2.20.2.tar"
         "SDL_ttf-release-2.0.15.tar"  # 兼容旧版本命名
@@ -20,8 +21,9 @@ verify_sdl2_local_files() {
     
     local all_files_exist=true
     
-    # 特殊处理SDL2_ttf文件（支持多个版本）
+    # 特殊处理SDL2_ttf和SDL2_image文件（支持多个版本）
     local sdl2_ttf_found=false
+    local sdl2_image_found=false
     
     for file in "${sdl2_files[@]}"; do
         if [ -f "/tmp/$file" ]; then
@@ -33,13 +35,16 @@ verify_sdl2_local_files() {
                 chmod 644 "/tmp/$file"
             fi
             
-            # 标记SDL2_ttf文件已找到
+            # 标记SDL2_ttf和SDL2_image文件已找到
             if [[ "$file" == *"ttf"* ]]; then
                 sdl2_ttf_found=true
             fi
+            if [[ "$file" == *"image"* ]]; then
+                sdl2_image_found=true
+            fi
         else
-            # 对于SDL2_ttf文件，只有在所有版本都缺失时才报告错误
-            if [[ "$file" == *"ttf"* ]]; then
+            # 对于SDL2_ttf和SDL2_image文件，只有在所有版本都缺失时才报告错误
+            if [[ "$file" == *"ttf"* ]] || [[ "$file" == *"image"* ]]; then
                 continue
             else
                 echo "✗ 文件缺失: /tmp/$file"
@@ -51,6 +56,12 @@ verify_sdl2_local_files() {
     # 检查SDL2_ttf文件状态
     if [ "$sdl2_ttf_found" = false ]; then
         echo "✗ SDL2_ttf文件缺失"
+        all_files_exist=false
+    fi
+    
+    # 检查SDL2_image文件状态
+    if [ "$sdl2_image_found" = false ]; then
+        echo "✗ SDL2_image文件缺失"
         all_files_exist=false
     fi
     
@@ -74,6 +85,18 @@ if ! grep -q "Ubuntu" /etc/os-release; then
     exit 1
 fi
 
+# 确保在项目根目录运行
+if [ ! -f "main.py" ]; then
+    echo "错误: 未找到main.py文件"
+    echo "请确保在项目根目录运行此脚本"
+    echo "当前目录: $(pwd)"
+    echo "请切换到项目根目录: cd /path/to/Translate-Chat"
+    exit 1
+fi
+
+echo "✓ 确认在项目根目录运行"
+echo ""
+
 # 配置 pip 全局镜像（清华源）
 echo "==== 0. 配置 pip 国内镜像 ===="
 mkdir -p ~/.pip
@@ -90,7 +113,15 @@ echo "==== 0.5. 检查 SDL2 本地文件并配置环境变量 ===="
 # 设置SDL2本地文件路径环境变量
 export SDL2_LOCAL_PATH="/tmp"
 export SDL2_MIXER_LOCAL_PATH="/tmp/SDL2_mixer-2.6.3.tar"
-export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL2_image-2.8.0.tar"
+
+# 检查SDL2_image文件（支持新旧版本命名）
+if [ -f "/tmp/SDL2_image-2.8.0.tar" ]; then
+    export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL2_image-2.8.0.tar"
+elif [ -f "/tmp/SDL_image-release-2.0.tar" ]; then
+    export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL_image-release-2.0.tar"
+else
+    export SDL2_IMAGE_LOCAL_PATH=""
+fi
 
 # 检查SDL2_ttf文件（支持新旧版本命名）
 if [ -f "/tmp/SDL2_ttf-2.20.2.tar" ]; then
@@ -111,7 +142,7 @@ verify_sdl2_local_files
 
 echo ""
 echo "提示: 本地文件将优先使用，避免网络下载"
-echo "如需下载本地文件，请运行: ./scripts/sdl2_local_setup.sh"
+echo "如需下载本地文件，请运行: ./scripts/sdl2_local_manager.sh"
 echo ""
 
 # 更新系统包
@@ -183,7 +214,7 @@ java -version
 
 # 创建/激活虚拟环境
 echo "==== 4. 创建Python虚拟环境 ===="
-if [ ! -d venv ]; then
+if [ ! -d "venv" ]; then
     python3 -m venv venv
     echo "虚拟环境创建完成"
 else
@@ -222,7 +253,12 @@ fi
 echo "==== 8. 清理之前的构建 ===="
 if [ -d ".buildozer" ]; then
     echo "清理之前的构建缓存..."
-    buildozer android clean
+    # 添加错误处理
+    if ! buildozer android clean; then
+        echo "⚠ buildozer clean失败，尝试手动清理..."
+        rm -rf .buildozer
+        echo "✓ 已手动清理.buildozer目录"
+    fi
 fi
 
 # 开始打包APK

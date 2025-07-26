@@ -34,6 +34,8 @@ from kivy.core.window import Window
 from kivymd.uix.textfield import MDTextField
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.core.clipboard import Clipboard
+from kivy.uix.screenmanager import ScreenManager, Screen
+from ui.sys_config_window import APIConfigScreen
 
 
 import re
@@ -144,6 +146,11 @@ KV = '''
 <MainWidget>:
     orientation: 'vertical'
     md_bg_color: .12, .12, .12, 1
+    MDTopAppBar:
+        title: 'Translate Chat'
+        right_action_items: [["", lambda x: app.open_api_config()]]
+        elevation: 0
+        md_bg_color: app.theme_cls.primary_color
 
     ScrollView:
         size_hint_y: 1
@@ -207,6 +214,9 @@ KV = '''
                 pos_hint: {"center_y": 0.5}
                 active: app.show_translation
                 on_active: app.toggle_translation(self.active)
+
+<MainScreen>:
+    MainWidget:
 
 '''
 
@@ -458,6 +468,9 @@ class ChatBubble(HoverBehavior, MDCard):
 class InterimBubble(MDCard):
     text = StringProperty()
 
+class MainScreen(Screen):
+    pass
+
 class TranslateChatApp(MDApp):
     show_translation = BooleanProperty(True)
     def toggle_translation(self, value):
@@ -465,15 +478,19 @@ class TranslateChatApp(MDApp):
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Blue"
-        # 设置初始窗口为手机竖屏比例，仅桌面端生效
         try:
             from kivy.utils import platform
             if platform not in ("android", "ios"):
                 Window.size = (360, 640)
         except Exception:
             pass
-        # 删除 font_styles.update 相关代码，避免 KivyMD 2.x 主题机制报错
-        return MainWidget()
+        sm = ScreenManager()
+        sm.add_widget(MainScreen(name='main'))
+        sm.add_widget(APIConfigScreen(name='api_config'))
+        self.sm = sm
+        return sm
+    def open_api_config(self):
+        self.sm.current = 'api_config'
 
 def run_app():
     TranslateChatApp().run()
