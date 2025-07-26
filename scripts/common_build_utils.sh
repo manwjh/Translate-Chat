@@ -91,77 +91,78 @@ install_compatible_python() {
     local system=$(detect_system)
     local target_version="3.10"
     
-    log_info "尝试自动安装Python $target_version..."
+    # 重定向日志输出到stderr，避免影响返回值
+    log_info "尝试自动安装Python $target_version..." >&2
     
     if [[ "$system" == "ubuntu" ]]; then
         # Ubuntu: 使用deadsnakes PPA安装Python 3.10
-        log_info "在Ubuntu上安装Python $target_version..."
+        log_info "在Ubuntu上安装Python $target_version..." >&2
         
         # 添加deadsnakes PPA
         if ! grep -q "deadsnakes" /etc/apt/sources.list.d/* 2>/dev/null; then
-            log_info "添加deadsnakes PPA..."
+            log_info "添加deadsnakes PPA..." >&2
             if ! sudo add-apt-repository ppa:deadsnakes/ppa -y; then
-                log_error "添加deadsnakes PPA失败"
+                log_error "添加deadsnakes PPA失败" >&2
                 return 1
             fi
             if ! sudo apt update; then
-                log_error "更新包列表失败"
+                log_error "更新包列表失败" >&2
                 return 1
             fi
         fi
         
         # 安装Python 3.10
         if ! command -v python3.10 &> /dev/null; then
-            log_info "安装Python 3.10..."
+            log_info "安装Python 3.10..." >&2
             if ! sudo apt install -y python3.10 python3.10-venv python3.10-dev python3.10-pip; then
-                log_error "安装Python 3.10失败"
+                log_error "安装Python 3.10失败" >&2
                 return 1
             fi
         fi
         
         # 检查安装结果
         if command -v python3.10 &> /dev/null; then
-            log_success "Python 3.10安装成功"
-            echo "python3.10"
+            log_success "Python 3.10安装成功" >&2
+            printf "%s" "python3.10"
             return 0
         else
-            log_error "Python 3.10安装失败"
+            log_error "Python 3.10安装失败" >&2
             return 1
         fi
         
     elif [[ "$system" == "macos" ]]; then
         # macOS: 使用Homebrew安装Python 3.10
-        log_info "在macOS上安装Python $target_version..."
+        log_info "在macOS上安装Python $target_version..." >&2
         
         if ! command -v brew &> /dev/null; then
-            log_error "Homebrew未安装，请先安装Homebrew"
+            log_error "Homebrew未安装，请先安装Homebrew" >&2
             return 1
         fi
         
         if ! brew list --versions python@3.10 >/dev/null; then
-            log_info "安装Python 3.10..."
+            log_info "安装Python 3.10..." >&2
             if ! brew install python@3.10; then
-                log_error "安装Python 3.10失败"
+                log_error "安装Python 3.10失败" >&2
                 return 1
             fi
         fi
         
         # 检查安装结果
         if [[ -f "/opt/homebrew/bin/python3.10" ]]; then
-            log_success "Python 3.10安装成功"
-            echo "/opt/homebrew/bin/python3.10"
+            log_success "Python 3.10安装成功" >&2
+            printf "%s" "/opt/homebrew/bin/python3.10"
             return 0
         elif [[ -f "/usr/local/bin/python3.10" ]]; then
-            log_success "Python 3.10安装成功"
-            echo "/usr/local/bin/python3.10"
+            log_success "Python 3.10安装成功" >&2
+            printf "%s" "/usr/local/bin/python3.10"
             return 0
         else
-            log_error "Python 3.10安装失败"
+            log_error "Python 3.10安装失败" >&2
             return 1
         fi
         
     else
-        log_error "不支持的系统类型: $system"
+        log_error "不支持的系统类型: $system" >&2
         return 1
     fi
 }
@@ -363,39 +364,39 @@ check_build_result() {
 # 环境检查主函数
 check_environment() {
     local system=$(detect_system)
-    log_info "检测到系统: $system"
+    log_info "检测到系统: $system" >&2
     
     # 检查Python
     local python_cmd="python3"
-    log_info "开始检查Python环境..."
+    log_info "开始检查Python环境..." >&2
     
-    if ! check_python_version "$python_cmd"; then
-        log_warning "当前Python版本不兼容，尝试自动安装合适的版本..."
+    if ! check_python_version "$python_cmd" >&2; then
+        log_warning "当前Python版本不兼容，尝试自动安装合适的版本..." >&2
         local new_python_cmd
         new_python_cmd=$(install_compatible_python)
         local install_result=$?
         
-        log_info "安装结果: $install_result, 新Python命令: '$new_python_cmd'"
+        log_info "安装结果: $install_result, 新Python命令: '$new_python_cmd'" >&2
         
         if [[ $install_result -eq 0 && -n "$new_python_cmd" ]]; then
-            log_success "使用新安装的Python: $new_python_cmd"
+            log_success "使用新安装的Python: $new_python_cmd" >&2
             # 重新检查版本
-            if check_python_version "$new_python_cmd"; then
-                log_success "Python环境检查通过"
+            if check_python_version "$new_python_cmd" >&2; then
+                log_success "Python环境检查通过" >&2
                 # 返回新安装的Python命令
                 printf "%s" "$new_python_cmd"
                 return 0
             else
-                log_error "Python环境检查失败"
+                log_error "Python环境检查失败" >&2
                 return 1
             fi
         else
-            log_error "无法安装合适的Python版本"
-            log_info "请手动安装Python 3.9-3.11版本后重试"
+            log_error "无法安装合适的Python版本" >&2
+            log_info "请手动安装Python 3.9-3.11版本后重试" >&2
             return 1
         fi
     else
-        log_success "Python环境检查通过"
+        log_success "Python环境检查通过" >&2
         printf "%s" "$python_cmd"
         return 0
     fi
@@ -427,9 +428,6 @@ handle_error() {
     log_info "请检查日志并修复问题后重试"
     exit $exit_code
 }
-
-# 设置错误处理
-trap handle_error ERR
 
 # 导出函数供其他脚本使用
 export -f log_info log_success log_warning log_error
