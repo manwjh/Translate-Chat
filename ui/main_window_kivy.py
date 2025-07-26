@@ -16,7 +16,7 @@ LabelBase.register(name="NotoSansSC", fn_regular=FONT_PATH)
 os.environ["KIVY_LOG_LEVEL"] = "error"
 
 from kivy.lang import Builder
-from kivy.properties import BooleanProperty, ObjectProperty, StringProperty
+from kivy.properties import BooleanProperty, ObjectProperty, StringProperty, ListProperty
 from kivy.clock import mainthread, Clock
 from kivy.metrics import dp
 import threading
@@ -30,8 +30,10 @@ from kivymd.uix.label import MDLabel
 from kivymd.uix.widget import Widget
 from kivymd.uix.selectioncontrol import MDSwitch
 from kivy.core.text import LabelBase
-
-
+from kivy.core.window import Window
+from kivymd.uix.textfield import MDTextField
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.core.clipboard import Clipboard
 
 
 import re
@@ -51,6 +53,8 @@ from audio_capture import AudioStream
 from asr_client import VolcanoASRClientAsync
 from lang_detect import LangDetect
 from translator import Translator
+# 新增导入
+from hotwords import get_hotwords, add_hotword
 
 KV = '''
 <MDLabel>:
@@ -63,17 +67,17 @@ KV = '''
 <ChatBubble@MDCard>:
     orientation: 'vertical'
     adaptive_height: True
-    size_hint_x: 0.9
+    size_hint_x: 1
     size_hint_y: None
     height: self.minimum_height
     padding: dp(10), dp(6)
     radius: [12, 12, 12, 12]
-    md_bg_color: .18, .18, .18, 1
+    md_bg_color: (0.1, 0.6, 0.9, 1) if self.selected else ((0.28, 0.38, 0.68, 1) if self.hovered else (.18, .18, .18, 1))
     elevation: 0
-    pos_hint: {"x": 0}
+    # pos_hint: {"x": 0}  # 可选，已满宽无需定位
     MDLabel:
         text: root.text
-        font_style: 'H5'
+        font_style: 'Body2'
         font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: 1, 1, 1, 1
@@ -114,17 +118,17 @@ KV = '''
 <InterimBubble@MDCard>:
     orientation: 'vertical'
     adaptive_height: True
-    size_hint_x: 0.9
+    size_hint_x: 1
     size_hint_y: None
     height: self.minimum_height
     padding: dp(10), dp(6)
     radius: [12, 12, 12, 12]
     md_bg_color: 1, 0.85, 0.2, 0.18
     elevation: 0
-    pos_hint: {"x": 0}
+    # pos_hint: {"x": 0}
     MDLabel:
         text: root.text
-        font_style: 'Body1'
+        font_style: 'H5'
         font_name: 'NotoSansSC'
         italic: True
         theme_text_color: 'Custom'
@@ -150,6 +154,28 @@ KV = '''
             adaptive_height: True
             padding: dp(8), dp(8)
             spacing: dp(8)
+
+    # 热词输入与显示区域
+    MDBoxLayout:
+        id: hotwords_box
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: dp(40)
+        padding: dp(8), 0
+        spacing: dp(8)
+        MDTextField:
+            id: hotword_input
+            hint_text: ""
+            font_name: 'NotoSansSC'
+            size_hint_x: 0.5
+            on_text_validate: root.add_hotword(self.text)
+        MDLabel:
+            id: hotwords_label
+            text: root.hotwords_display
+            font_name: 'NotoSansSC'
+            size_hint_x: 1
+            halign: 'left'
+            valign: 'middle'
 
     MDBoxLayout:
         orientation: 'horizontal'
@@ -186,11 +212,37 @@ KV = '''
 
 Builder.load_string(KV)
 
+# ========== HoverBehavior ===========
+from kivy.properties import BooleanProperty
+class HoverBehavior(object):
+    hovered = BooleanProperty(False)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        Window.bind(mouse_pos=self.on_mouse_pos)
+    def on_mouse_pos(self, *args):
+        if not self.get_root_window():
+            return
+        pos = args[1]
+        inside = self.collide_point(*self.to_widget(*pos))
+        self.hovered = inside
+    def on_hovered(self, instance, value):
+        pass
+
 class MainWidget(MDBoxLayout):
     asr_running = BooleanProperty(False)
     mic_btn_text = ObjectProperty('Mic ON')
+    # 新增属性
+    hotwords = ListProperty([])
+    hotwords_display = StringProperty('[ ]')
 
     def __init__(self, **kwargs):
+        # 启动时清空 hotwords.json
+        try:
+            hotwords_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../hotwords.json'))
+            with open(hotwords_path, 'w', encoding='utf-8') as f:
+                f.write('[]')
+        except Exception as e:
+            print(f"[WARN] Failed to clear hotwords.json: {e}")
         super().__init__(**kwargs)
         self.final_texts = []
         self.final_bubbles = []
@@ -203,6 +255,25 @@ class MainWidget(MDBoxLayout):
         self.loop = None
         self.interim_bubble = None  # 只保留一个interim气泡
         self._asr_call_count = 0  # 调用计数
+        # 初始化热词
+        self.hotwords = get_hotwords()
+        self.update_hotwords_display()
+        # 绑定键盘事件
+        from kivy.core.window import Window
+        Window.bind(on_key_down=self.on_key_down)
+
+    def add_hotword(self, word):
+        word = clean_text(word)
+        if word and add_hotword(word):
+            self.hotwords = get_hotwords()
+            self.update_hotwords_display()
+        self.ids.hotword_input.text = ''
+
+    def update_hotwords_display(self):
+        if self.hotwords:
+            self.hotwords_display = '[' + '，'.join(self.hotwords) + '，]'
+        else:
+            self.hotwords_display = '[ ]'
 
     def on_mic(self):
         if self.asr_running:
@@ -315,7 +386,6 @@ class MainWidget(MDBoxLayout):
     def _show_asr_utterances(self, utterances):
         self._asr_call_count += 1
         print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
-        traceback.print_stack(limit=3)
         chat_area = self.ids.chat_area
         print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
         # 1. 固化分句：增量添加到 final_bubbles，历史内容不丢失
@@ -323,11 +393,10 @@ class MainWidget(MDBoxLayout):
             text = utt.get('text', '')
             definite = utt.get('definite', False)
             translation = utt.get('translation', None)
-            timeout_finalize = utt.get('timeout_finalize', False)
+            timeout_tip = '超时自动固化' if utt.get('timeout_finalize', False) else ''
             start_time = utt.get('start_time')
             end_time = utt.get('end_time')
             key = (text, start_time, end_time)
-            timeout_tip = '超时自动固化' if timeout_finalize else ''
             if definite and text and key not in self.final_utterance_keys:
                 bubble = self.create_bubble(text, translation, timeout_tip)
                 self.final_bubbles.append(bubble)
@@ -336,16 +405,13 @@ class MainWidget(MDBoxLayout):
         chat_area.clear_widgets()
         for bubble in self.final_bubbles:
             chat_area.add_widget(bubble)
-        # 3. interim 气泡始终只有一个，显示在最下方
-        interim = None
+        # 3. 显示所有未固化 interim 气泡（每个都显示）
         for utt in utterances:
             text = utt.get('text', '')
             definite = utt.get('definite', False)
             if not definite and text:
-                interim = text
-        if interim:
-            self.interim_bubble = InterimBubble(text=interim)
-            chat_area.add_widget(self.interim_bubble)
+                interim_bubble = InterimBubble(text=text)
+                chat_area.add_widget(interim_bubble)
         # 4. 只有内容超出可视区时才自动滚动到底部
         scrollview = chat_area.parent
         if chat_area.height > scrollview.height:
@@ -361,10 +427,33 @@ class MainWidget(MDBoxLayout):
         if chat_area:
             chat_area.parent.scroll_y = 0
 
-class ChatBubble(MDCard):
+    def on_key_down(self, window, key, scancode, codepoint, modifiers):
+        if 'ctrl' in modifiers and codepoint in ('c', 'C'):
+            for bubble in self.final_bubbles:
+                if getattr(bubble, 'selected', False):
+                    # 复制内容，可自定义复制 text/translation/合并
+                    copy_text = bubble.text
+                    if bubble.translation:
+                        copy_text += '\n' + bubble.translation
+                    Clipboard.copy(copy_text)
+                    print("已复制到剪贴板:", copy_text)
+                    break
+
+class ChatBubble(HoverBehavior, MDCard):
     text = StringProperty()
     translation = StringProperty()
     timeout_tip = StringProperty()
+    selected = BooleanProperty(False)
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            parent = self.parent
+            for child in parent.children:
+                if isinstance(child, ChatBubble):
+                    child.selected = False
+            self.selected = True
+            return True
+        return super().on_touch_down(touch)
 
 class InterimBubble(MDCard):
     text = StringProperty()
@@ -376,6 +465,13 @@ class TranslateChatApp(MDApp):
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Blue"
+        # 设置初始窗口为手机竖屏比例，仅桌面端生效
+        try:
+            from kivy.utils import platform
+            if platform not in ("android", "ios"):
+                Window.size = (360, 640)
+        except Exception:
+            pass
         # 删除 font_styles.update 相关代码，避免 KivyMD 2.x 主题机制报错
         return MainWidget()
 

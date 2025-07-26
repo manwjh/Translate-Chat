@@ -52,6 +52,10 @@ Translate-Chat/
   │     ├── main_window_qt.py      # PyQt备用界面
   │     ├── font_test.py           # 字体测试
   │     └── UI_README.md           # UI说明文档
+  ├── docs/
+  │     ├── linux_dev_guide.md      # Linux开发、运行和打包说明
+  │     ├── macos_dev_guide.md      # macOS开发说明（可选）
+  │     └── android_dev_guide.md    # Android开发说明（可选）
   └── ...
 ```
 
@@ -123,6 +127,7 @@ python3 main.py
 - `font_test.py` 可用于测试字体显示
 - 旧版 `requirements.txt`、`ui/main_window.py` 已废弃
 - 配置模板请参考 `config_template.py`
+- 开发文档见 `docs/` 目录，包含各平台开发、运行与打包说明
 
 ---
 

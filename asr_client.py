@@ -15,6 +15,9 @@ import json
 from config import ASR_WS_URL, ASR_APP_KEY, ASR_ACCESS_KEY, ASR_SAMPLE_RATE
 import logging
 
+# 新增导入
+#from speaker_change_detector import SpeakerChangeDetector
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -233,6 +236,8 @@ class VolcanoASRClientAsync:
         self.session = None
         self.conn = None
         self.running = False
+        # 新增：说话人变化检测器
+        #self.speaker_detector = SpeakerChangeDetector(sample_rate=ASR_SAMPLE_RATE)
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -259,10 +264,17 @@ class VolcanoASRClientAsync:
     async def send_audio_stream(self, audio_generator):
         buf = b""
         count = 0
+        # 新增：用于说话人检测的缓冲
+        #detector = self.speaker_detector
         async for chunk, is_last in audio_generator:
             buf += chunk
             count += 1
-            if count == 3 or is_last:
+            # 说话人检测
+            #results = detector.feed_pcm(chunk)
+            #for speech_pcm, is_changed in results:
+            #    if is_changed:
+            #        print("[SpeakerChange] 检测到说话人变化！")
+            if count == 2 or is_last:
                 request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
                 await self.conn.send_bytes(request)
                 logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
@@ -270,6 +282,10 @@ class VolcanoASRClientAsync:
                     self.seq += 1
                 buf = b""
                 count = 0
+        # 处理最后剩余帧
+        #for speech_pcm, is_changed in detector.flush():
+        #    if is_changed:
+        #        print("[SpeakerChange] 检测到说话人变化！（结尾）")
 
     async def receive_results(self):
         async for msg in self.conn:
