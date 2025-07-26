@@ -8,71 +8,8 @@
 
 set -e
 
-# 验证SDL2本地文件的函数
-verify_sdl2_local_files() {
-    local sdl2_files=(
-        "SDL2-2.28.5.tar"
-        "SDL2_image-2.8.0.tar"
-        "SDL_image-release-2.0.tar"  # 兼容新版本命名
-        "SDL2_mixer-2.6.3.tar"
-        "SDL2_ttf-2.20.2.tar"
-        "SDL_ttf-release-2.0.15.tar"  # 兼容旧版本命名
-    )
-    
-    local all_files_exist=true
-    
-    # 特殊处理SDL2_ttf和SDL2_image文件（支持多个版本）
-    local sdl2_ttf_found=false
-    local sdl2_image_found=false
-    
-    for file in "${sdl2_files[@]}"; do
-        if [ -f "/tmp/$file" ]; then
-            size=$(du -h "/tmp/$file" | cut -f1)
-            echo "✓ 验证通过: /tmp/$file (大小: $size)"
-            # 检查文件是否可读
-            if [ ! -r "/tmp/$file" ]; then
-                echo "⚠ 警告: /tmp/$file 不可读，正在修复权限..."
-                chmod 644 "/tmp/$file"
-            fi
-            
-            # 标记SDL2_ttf和SDL2_image文件已找到
-            if [[ "$file" == *"ttf"* ]]; then
-                sdl2_ttf_found=true
-            fi
-            if [[ "$file" == *"image"* ]]; then
-                sdl2_image_found=true
-            fi
-        else
-            # 对于SDL2_ttf和SDL2_image文件，只有在所有版本都缺失时才报告错误
-            if [[ "$file" == *"ttf"* ]] || [[ "$file" == *"image"* ]]; then
-                continue
-            else
-                echo "✗ 文件缺失: /tmp/$file"
-                all_files_exist=false
-            fi
-        fi
-    done
-    
-    # 检查SDL2_ttf文件状态
-    if [ "$sdl2_ttf_found" = false ]; then
-        echo "✗ SDL2_ttf文件缺失"
-        all_files_exist=false
-    fi
-    
-    # 检查SDL2_image文件状态
-    if [ "$sdl2_image_found" = false ]; then
-        echo "✗ SDL2_image文件缺失"
-        all_files_exist=false
-    fi
-    
-    if [ "$all_files_exist" = true ]; then
-        echo "✓ 所有SDL2本地文件验证通过，将优先使用本地文件"
-        return 0
-    else
-        echo "⚠ 部分SDL2文件缺失，将混合使用本地文件和网络下载"
-        return 1
-    fi
-}
+# 引入通用打包工具函数
+source ./scripts/common_build_utils.sh
 
 # 配置 pip 全局镜像（清华源）
 echo "==== 0. 配置 pip 国内镜像 ===="
@@ -82,42 +19,15 @@ cat > ~/.pip/pip.conf <<EOF
 index-url = https://pypi.tuna.tsinghua.edu.cn/simple
 EOF
 
-# 检查 SDL2 本地文件并设置环境变量
-echo "==== 0.5. 检查 SDL2 本地文件并配置环境变量 ===="
+echo "pip镜像已配置为清华源"
 
-# 设置SDL2本地文件路径环境变量
-export SDL2_LOCAL_PATH="/tmp"
-export SDL2_MIXER_LOCAL_PATH="/tmp/SDL2_mixer-2.6.3.tar"
-
-# 检查SDL2_image文件（支持新旧版本命名）
-if [ -f "/tmp/SDL2_image-2.8.0.tar" ]; then
-    export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL2_image-2.8.0.tar"
-elif [ -f "/tmp/SDL_image-release-2.0.tar" ]; then
-    export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL_image-release-2.0.tar"
-else
-    export SDL2_IMAGE_LOCAL_PATH=""
-fi
-
-# 检查SDL2_ttf文件（支持新旧版本命名）
-if [ -f "/tmp/SDL2_ttf-2.20.2.tar" ]; then
-    export SDL2_TTF_LOCAL_PATH="/tmp/SDL2_ttf-2.20.2.tar"
-elif [ -f "/tmp/SDL_ttf-release-2.0.15.tar" ]; then
-    export SDL2_TTF_LOCAL_PATH="/tmp/SDL_ttf-release-2.0.15.tar"
-else
-    export SDL2_TTF_LOCAL_PATH=""
-fi
-
-echo "已设置SDL2本地文件环境变量:"
-echo "  SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
-echo "  SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
-echo ""
-
-# 验证SDL2本地文件
-verify_sdl2_local_files
+# 检查并准备所有本地依赖包
+echo "==== 0.5. 检查本地依赖包并配置环境变量 ===="
+verify_and_prepare_all_dependencies
 
 echo ""
-echo "提示: 本地文件将优先使用，避免网络下载"
-echo "如需下载本地文件，请运行: ./scripts/sdl2_local_setup.sh"
+echo "提示: 本地依赖包将优先使用，避免网络下载"
+echo "如需下载本地依赖包，请运行: ./scripts/dependency_manager.sh"
 echo ""
 
 # 检查 openssl@1.1 路径并自动设置环境变量

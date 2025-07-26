@@ -7,6 +7,7 @@
 1. **网络下载失败**：SDL2依赖包下载失败
 2. **pyjnius编译错误**：`long`类型未定义，Cython版本兼容性问题
 3. **依赖包版本冲突**：新版本包与旧版本不兼容
+4. **main.py找不到**：buildozer找不到应用入口点文件
 
 ## 解决方案 / Solutions
 
@@ -34,7 +35,20 @@ bash scripts/complete_build_fix.sh
 
 如果只需要解决特定问题，可以使用专门的脚本：
 
-#### 2.1 依赖包本地化 / Dependency Localization
+#### 2.1 main.py找不到问题 / main.py Not Found Issue
+
+```bash
+# 修复main.py找不到问题
+bash scripts/fix_main_py_issue.sh
+```
+
+**此脚本会：**
+- 自动查找main.py文件位置
+- 切换到正确的项目根目录
+- 验证项目结构
+- 检查buildozer.spec配置
+
+#### 2.2 依赖包本地化 / Dependency Localization
 
 ```bash
 # 下载SDL2依赖
@@ -44,7 +58,7 @@ bash scripts/sdl2_local_manager.sh
 bash scripts/dependency_manager.sh
 ```
 
-#### 2.2 pyjnius编译问题修复 / pyjnius Compilation Fix
+#### 2.3 pyjnius编译问题修复 / pyjnius Compilation Fix
 
 ```bash
 # 修复pyjnius编译问题
@@ -55,21 +69,40 @@ bash scripts/fix_pyjnius_issue.sh
 
 如果脚本无法解决问题，可以手动执行以下步骤：
 
-#### 3.1 降级Cython版本
+#### 3.1 解决main.py找不到问题
+
+**问题原因：** buildozer在错误的目录运行，找不到main.py文件
+
+**解决方案：**
+1. 确保在项目根目录运行buildozer
+2. 检查buildozer.spec中的source.dir配置
+
+```bash
+# 切换到项目根目录
+cd /path/to/Translate-Chat
+
+# 验证main.py存在
+ls -la main.py
+
+# 运行buildozer
+buildozer -v android debug
+```
+
+#### 3.2 降级Cython版本
 
 ```bash
 pip uninstall -y cython
 pip install "cython<3.0"
 ```
 
-#### 3.2 安装兼容的pyjnius版本
+#### 3.3 安装兼容的pyjnius版本
 
 ```bash
 pip uninstall -y pyjnius
 pip install "pyjnius<1.5"
 ```
 
-#### 3.3 更新requirements文件
+#### 3.4 更新requirements文件
 
 在 `requirements-android.txt` 中添加：
 
@@ -78,7 +111,7 @@ cython<3.0
 pyjnius<1.5
 ```
 
-#### 3.4 更新buildozer.spec
+#### 3.5 更新buildozer.spec
 
 在 `buildozer.spec` 的 `requirements` 行中添加版本限制：
 
@@ -121,22 +154,27 @@ buildozer -v android debug
 
 ## 常见问题 / Common Issues
 
-### 1. 网络连接问题
+### 1. main.py找不到
+
+**症状：** `BUILD FAILURE: No main.py(c) found in your app directory`
+**解决：** 确保在项目根目录运行buildozer，或使用 `fix_main_py_issue.sh` 脚本
+
+### 2. 网络连接问题
 
 **症状：** 下载失败，连接超时
 **解决：** 使用本地依赖包，或配置代理
 
-### 2. Cython编译错误
+### 3. Cython编译错误
 
 **症状：** `long`类型未定义，语法错误
 **解决：** 降级Cython到 <3.0 版本
 
-### 3. pyjnius编译失败
+### 4. pyjnius编译失败
 
 **症状：** 找不到jnius.c文件，编译错误
 **解决：** 安装pyjnius <1.5 版本
 
-### 4. 权限问题
+### 5. 权限问题
 
 **症状：** 无法写入文件，权限被拒绝
 **解决：** 检查文件权限，确保可写
@@ -172,6 +210,14 @@ echo "PATH: $PATH"
 ```bash
 # 检查关键包版本
 pip list | grep -E "(cython|pyjnius|buildozer|kivy)"
+```
+
+### 4. 验证项目结构
+
+```bash
+# 检查项目文件
+ls -la main.py buildozer.spec
+echo "当前目录: $(pwd)"
 ```
 
 ## 联系支持 / Support

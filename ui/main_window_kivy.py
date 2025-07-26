@@ -148,7 +148,7 @@ KV = '''
     md_bg_color: .12, .12, .12, 1
     MDTopAppBar:
         title: 'Translate Chat'
-        right_action_items: [["", lambda x: app.open_api_config()]]
+        right_action_items: [["chevron-right", lambda x: app.open_api_config()]]
         elevation: 0
         md_bg_color: app.theme_cls.primary_color
 

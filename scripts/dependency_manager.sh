@@ -1,48 +1,73 @@
 #!/bin/bash
-# 依赖包本地化管理脚本 / Dependency Local Manager Script
+# 统一预下载脚本 / Unified Pre-download Script
 # 文件名(File): dependency_manager.sh
-# 版本(Version): v1.0.0
+# 创建日期(Created): 2024/06/09
 # 作者(Author): AI Assistant
-# 创建日期(Created): 2025/1/27
-# 简介(Description): 提前下载SDL2和Python依赖包到本地，方便离线打包
+# 简介(Description): 统一下载SDL2和Python依赖包到本地，供主打包脚本离线使用。
 
 set -e
 
-echo "==== 依赖包本地化准备 / Dependency Local Preparation ===="
+echo "==== 统一预下载脚本 / Unified Pre-download Script ===="
 echo ""
 
-# 1. 下载SDL2相关依赖
-# 1. Download SDL2 related dependencies
-if [ -f ./scripts/sdl2_local_manager.sh ]; then
-    echo "1. 下载SDL2相关依赖... / Downloading SDL2 related dependencies..."
-    bash ./scripts/sdl2_local_manager.sh
-else
-    echo "未找到 scripts/sdl2_local_manager.sh，跳过SDL2依赖下载 / Not found, skipping SDL2 download."
-fi
+# SDL2文件配置
+SDL2_FILES=(
+    "SDL2-2.28.5.tar|https://github.com/libsdl-org/SDL/releases/download/release-2.28.5/SDL2-2.28.5.tar.gz"
+    "SDL2_image-2.8.0.tar|https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.0/SDL2_image-2.8.0.tar.gz"
+    "SDL2_mixer-2.6.3.tar|https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.6.3/SDL2_mixer-2.6.3.tar.gz"
+    "SDL2_ttf-2.20.2.tar|https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.20.2/SDL2_ttf-2.20.2.tar.gz"
+)
 
-echo ""
-# 2. 下载Python依赖包到本地wheels目录
-# 2. Download Python dependencies to local wheels directory
+echo "第一步: 下载SDL2相关依赖 / Step 1: Download SDL2 dependencies"
+echo "=========================================================="
+mkdir -p /tmp
+
+for download in "${SDL2_FILES[@]}"; do
+    IFS='|' read -r filename url <<< "$download"
+    base_name="${filename%.tar}"
+    # 检查.tar文件或.tar.gz文件是否存在
+    if [ -f "/tmp/$filename" ] || [ -f "/tmp/${base_name}.tar.gz" ]; then
+        if [ -f "/tmp/$filename" ]; then
+            echo "✓ 已存在: /tmp/$filename"
+        else
+            echo "✓ 已存在: /tmp/${base_name}.tar.gz (替代 $filename)"
+        fi
+        continue
+    fi
+    echo "→ 下载: $filename"
+    for attempt in 1 2 3; do
+        if curl -L --retry 3 --retry-delay 2 --connect-timeout 30 -o "/tmp/$filename" "$url"; then
+            echo "✓ 下载完成: $filename"
+            break
+        else
+            echo "⚠ 第 $attempt 次下载失败，重试..."
+            if [ $attempt -eq 3 ]; then
+                echo "✗ 下载失败: $filename (已重试3次)"
+                echo "请手动下载: curl -L -o /tmp/$filename $url"
+                exit 1
+            fi
+            sleep 2
+        fi
+    done
+    echo ""
+done
+
+echo "第二步: 下载Python依赖wheels / Step 2: Download Python wheels"
+echo "=============================================================="
 mkdir -p ./wheels
-echo "2. 下载Python依赖包到本地wheels目录... / Downloading Python dependencies to ./wheels ..."
 if [ -f requirements-android.txt ]; then
     pip download -r requirements-android.txt -d ./wheels
 fi
 if [ -f requirements-desktop.txt ]; then
     pip download -r requirements-desktop.txt -d ./wheels
 fi
-# 可选：下载常用工具包
 pip download buildozer cython -d ./wheels
 
 echo ""
-echo "==== 依赖包下载完成 / Dependency Download Complete ===="
+echo "==== 所有依赖预下载完成 / All dependencies pre-downloaded ===="
+echo "✓ SDL2文件已下载到 /tmp 目录"
+echo "✓ Python依赖已下载到 ./wheels 目录"
 echo ""
-echo "==== 使用说明 / Usage Instructions ===="
-echo "打包时可用如下命令优先本地依赖："
-echo "  pip install --no-index --find-links=./wheels -r requirements-android.txt"
-echo "  pip install --no-index --find-links=./wheels -r requirements-desktop.txt"
-echo ""
-echo "buildozer会自动检测SDL2本地包。"
-echo "如需自定义Android SDK/NDK路径，请提前下载并设置环境变量。"
-echo ""
-echo "==== 完成 / Done ====" 
+echo "现在可以运行打包脚本，将优先使用本地文件:"
+echo "  ./scripts/build_android_macos.sh"
+echo "  ./scripts/build_android_ubuntu.sh" 

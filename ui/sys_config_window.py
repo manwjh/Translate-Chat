@@ -83,24 +83,12 @@ KV = '''
 <APIConfigScreen>:
     md_bg_color: app.theme_cls.bg_darkest if app else (0.1,0.1,0.1,1)
     MDBoxLayout:
-        orientation: 'horizontal'
-        size_hint_y: None
-        height: dp(56)
+        orientation: 'vertical'
         MDTopAppBar:
             title: "API Configuration"
-            right_action_items: [[">", lambda x: root.go_back()]]
+            right_action_items: [["chevron-right", lambda x: root.go_back()]]
             elevation: 0
             md_bg_color: app.theme_cls.primary_color if app else (0.2,0.2,0.2,1)
-            size_hint_x: 1
-        MDTextButton:
-            text: ">"
-            on_release: root.go_back()
-            theme_text_color: "Custom"
-            text_color: 1, 1, 1, 1
-            font_size: "24sp"
-            size_hint_x: None
-            width: dp(48)
-            pos_hint: {"center_y": 0.5}
         ScrollView:
             MDBoxLayout:
                 orientation: 'vertical'
