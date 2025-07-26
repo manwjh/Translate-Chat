@@ -1,75 +1,83 @@
 #!/bin/bash
 # Translate Chat - Ubuntu Android 打包自动化脚本
 # 文件名(File): build_android_ubuntu.sh
-# 版本(Version): v1.0.1
-# 作者(Author): 深圳王哥 & AI
+# 版本(Version): v2.0.0
 # 创建日期(Created): 2025/1/27
-# 简介(Description): Ubuntu环境下Android APK自动化打包脚本，支持SDL2本地文件优先
+# 简介(Description): Ubuntu环境下Android APK自动化打包脚本，统一环境配置，解决兼容性问题
 
 set -e
 
 # 引入通用打包工具函数
 source ./scripts/common_build_utils.sh
 
-echo "==== Translate Chat - Ubuntu Android 打包脚本 ===="
+echo "==== Translate Chat - Ubuntu Android 打包脚本 v2.0.0 ===="
 echo "开始时间: $(date)"
 echo ""
 
 # 检查是否为Ubuntu系统
 if ! grep -q "Ubuntu" /etc/os-release; then
-    echo "错误: 此脚本仅适用于Ubuntu系统"
-    echo "检测到的系统: $(cat /etc/os-release | grep PRETTY_NAME)"
+    log_error "此脚本仅适用于Ubuntu系统"
+    log_error "检测到的系统: $(cat /etc/os-release | grep PRETTY_NAME)"
     exit 1
 fi
 
 # 确保在项目根目录运行
-if [ ! -f "main.py" ]; then
-    echo "错误: 未找到main.py文件"
-    echo "请确保在项目根目录运行此脚本"
-    echo "当前目录: $(pwd)"
-    echo "请切换到项目根目录: cd /path/to/Translate-Chat"
+if [[ ! -f "main.py" ]]; then
+    log_error "未找到main.py文件"
+    log_error "请确保在项目根目录运行此脚本"
+    log_error "当前目录: $(pwd)"
+    log_error "请切换到项目根目录: cd /path/to/Translate-Chat"
     exit 1
 fi
 
-echo "✓ 确认在项目根目录运行"
+log_success "确认在项目根目录运行"
 echo ""
 
-# 检查并准备所有本地依赖包
+# 环境检查
+echo "==== 1. 环境检查 ===="
+if ! check_environment; then
+    log_error "环境检查失败，请修复问题后重试"
+    exit 1
+fi
+
+# 配置pip镜像
+echo "==== 2. 配置pip镜像 ===="
+setup_pip_mirror
+
+# 检查并准备本地依赖包
+echo "==== 3. 检查本地依赖包 ===="
 verify_and_prepare_all_dependencies
 
-# 配置 pip 全局镜像（清华源）
-echo "==== 0. 配置 pip 国内镜像 ===="
-mkdir -p ~/.pip
-cat > ~/.pip/pip.conf <<EOF
-[global]
-index-url = https://pypi.tuna.tsinghua.edu.cn/simple
-trusted-host = pypi.tuna.tsinghua.edu.cn
-EOF
-echo "pip镜像已配置为清华源"
-
 # 更新系统包
-echo "==== 1. 更新系统包 ===="
+echo "==== 4. 更新系统包 ===="
+log_info "更新系统包..."
 sudo apt update
 sudo apt upgrade -y
 
 # 安装系统依赖
-echo "==== 2. 安装系统依赖 ===="
+echo "==== 5. 安装系统依赖 ===="
+log_info "安装系统依赖..."
+
+# 基础工具
 sudo apt install -y \
     python3 \
     python3-venv \
     python3-pip \
     git \
-    openjdk-8-jdk \
     unzip \
+    build-essential \
+    autoconf \
+    libtool \
+    pkg-config \
+    cmake
+
+# 音频视频相关依赖
+sudo apt install -y \
     zlib1g-dev \
     libncurses5 \
     libstdc++6 \
     libffi-dev \
     libssl-dev \
-    build-essential \
-    autoconf \
-    libtool \
-    pkg-config \
     libjpeg-dev \
     libpng-dev \
     libfreetype6-dev \
@@ -78,24 +86,11 @@ sudo apt install -y \
     libsdl2-image-dev \
     libsdl2-mixer-dev \
     libsdl2-ttf-dev \
-    libportmidi-dev \
+    libportmidi-dev
+
+# FFmpeg相关依赖
+sudo apt install -y \
     libswscale-dev \
-    libavformat-dev \
-    libavcodec-dev \
-    libavdevice-dev \
-    libavutil-dev \
-    libavfilter-dev \
-    libavresample-dev \
-    libpostproc-dev \
-    libswresample-dev \
-    libavformat-dev \
-    libavcodec-dev \
-    libavdevice-dev \
-    libavutil-dev \
-    libavfilter-dev \
-    libavresample-dev \
-    libpostproc-dev \
-    libswresample-dev \
     libavformat-dev \
     libavcodec-dev \
     libavdevice-dev \
@@ -105,68 +100,61 @@ sudo apt install -y \
     libpostproc-dev \
     libswresample-dev
 
-echo "系统依赖安装完成"
+log_success "系统依赖安装完成"
 
-# 设置JAVA环境
-echo "==== 3. 配置Java环境 ===="
-export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
-export PATH="$JAVA_HOME/bin:$PATH"
-echo "JAVA_HOME设置为: $JAVA_HOME"
-java -version
+# 安装Java环境
+echo "==== 6. 安装Java环境 ===="
 
-# 创建/激活虚拟环境
-echo "==== 4. 创建Python虚拟环境 ===="
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-    echo "虚拟环境创建完成"
+# 检查是否已安装JDK 17
+if [[ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]]; then
+    log_success "JDK 17已安装"
+elif [[ -d "/usr/lib/jvm/java-11-openjdk-amd64" ]]; then
+    log_success "JDK 11已安装"
+elif [[ -d "/usr/lib/jvm/java-8-openjdk-amd64" ]]; then
+    log_warning "检测到JDK 8，建议升级到JDK 11或17"
 else
-    echo "虚拟环境已存在"
+    log_info "安装JDK 17..."
+    sudo apt install -y openjdk-17-jdk
 fi
 
+# 设置Java环境变量
+setup_java_env
+
+# 创建Python虚拟环境
+echo "==== 7. 创建Python虚拟环境 ===="
+create_venv "python3" "venv"
+
+# 安装Python依赖
+echo "==== 8. 安装Python依赖 ===="
+install_python_deps "venv"
+
+# 激活虚拟环境
 source venv/bin/activate
-echo "虚拟环境已激活: $(which python)"
-
-# 升级pip和安装基础工具
-echo "==== 5. 安装Python基础工具 ===="
-pip install --upgrade pip setuptools wheel
-pip install cython
-
-# 安装buildozer
-echo "==== 6. 安装Buildozer ===="
-pip install buildozer
 
 # 检查buildozer.spec文件
-echo "==== 7. 检查Buildozer配置 ===="
-if [ ! -f buildozer.spec ]; then
-    echo "未找到buildozer.spec，正在初始化..."
+echo "==== 9. 检查Buildozer配置 ===="
+if [[ ! -f "buildozer.spec" ]]; then
+    log_info "未找到buildozer.spec，正在初始化..."
     buildozer init
-    echo "buildozer.spec已创建，请检查配置后重新运行脚本"
+    log_warning "buildozer.spec已创建，请检查配置后重新运行脚本"
     exit 0
 else
-    echo "找到buildozer.spec文件"
-    echo "当前配置摘要:"
-    echo "- 应用名称: $(grep '^title =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    echo "- 包名: $(grep '^package.name =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    echo "- 版本: $(grep '^version =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
-    echo "- 目标架构: $(grep '^android.arch =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
+    log_success "找到buildozer.spec文件"
+    log_info "当前配置摘要:"
+    log_info "- 应用名称: $(grep '^title =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
+    log_info "- 包名: $(grep '^package.name =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
+    log_info "- 版本: $(grep '^version =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
+    log_info "- 目标架构: $(grep '^android.archs =' buildozer.spec | cut -d'=' -f2 | tr -d ' ')"
 fi
 
 # 清理之前的构建
-echo "==== 8. 清理之前的构建 ===="
-if [ -d ".buildozer" ]; then
-    echo "清理之前的构建缓存..."
-    # 添加错误处理
-    if ! buildozer android clean; then
-        echo "⚠ buildozer clean失败，尝试手动清理..."
-        rm -rf .buildozer
-        echo "✓ 已手动清理.buildozer目录"
-    fi
-fi
+echo "==== 10. 清理之前的构建 ===="
+clean_build_cache
 
 # 开始打包APK
-echo "==== 9. 开始打包APK ===="
-echo "注意: 首次打包可能需要较长时间，需要下载Android SDK/NDK"
-echo "如果网络较慢，建议使用科学上网工具"
+echo "==== 11. 开始打包APK ===="
+log_info "注意: 首次打包可能需要较长时间，需要下载Android SDK/NDK"
+log_info "如果网络较慢，建议使用科学上网工具"
 echo ""
 
 # 设置环境变量确保在虚拟环境中可见
@@ -178,36 +166,39 @@ export SDL2_IMAGE_LOCAL_PATH
 export SDL2_TTF_LOCAL_PATH
 
 # 执行打包
-buildozer -v android debug
+log_info "执行buildozer打包..."
+if buildozer -v android debug; then
+    log_success "buildozer打包命令执行完成"
+else
+    log_error "buildozer打包失败"
+    exit 1
+fi
 
 # 检查打包结果
-echo "==== 10. 检查打包结果 ===="
-if [ -d "bin" ]; then
-    echo "APK文件列表:"
-    ls -lh bin/*.apk 2>/dev/null || echo "未找到APK文件"
-    
-    # 统计APK大小
-    if ls bin/*.apk >/dev/null 2>&1; then
-        echo ""
-        echo "APK文件详情:"
-        for apk in bin/*.apk; do
-            echo "- $(basename $apk): $(du -h $apk | cut -f1)"
-        done
-    fi
+echo "==== 12. 检查打包结果 ===="
+if check_build_result; then
+    log_success "APK构建成功！"
 else
-    echo "警告: 未找到bin目录，打包可能失败"
+    log_error "APK构建失败"
+    exit 1
 fi
 
 echo ""
-echo "==== 11. 构建完成总结 ===="
-echo "✓ SDL2本地文件配置:"
-echo "  - SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
-echo "  - SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
-echo "  - SDL2_IMAGE_LOCAL_PATH: $SDL2_IMAGE_LOCAL_PATH"
-echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
+echo "==== 13. 构建完成总结 ===="
+log_success "SDL2本地文件配置:"
+[[ -n "$SDL2_LOCAL_PATH" ]] && echo "  - SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
+[[ -n "$SDL2_MIXER_LOCAL_PATH" ]] && echo "  - SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
+[[ -n "$SDL2_IMAGE_LOCAL_PATH" ]] && echo "  - SDL2_IMAGE_LOCAL_PATH: $SDL2_IMAGE_LOCAL_PATH"
+[[ -n "$SDL2_TTF_LOCAL_PATH" ]] && echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
 echo ""
-echo "==== 12. 部署说明 ===="
-echo "如需部署到设备，请:"
+log_success "环境配置:"
+echo "  - Python版本: $(python3 --version)"
+echo "  - Java版本: $(java -version 2>&1 | head -n 1)"
+echo "  - JAVA_HOME: $JAVA_HOME"
+echo ""
+
+echo "==== 14. 部署说明 ===="
+log_info "如需部署到设备，请:"
 echo "1. 连接Android设备并开启USB调试"
 echo "2. 运行: buildozer android deploy run"
 echo "3. 查看日志: buildozer android logcat"
@@ -221,6 +212,10 @@ echo ""
 read -p "是否立即部署到连接的设备? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "正在部署到设备..."
-    buildozer android deploy run
+    log_info "正在部署到设备..."
+    if buildozer android deploy run; then
+        log_success "部署成功"
+    else
+        log_error "部署失败"
+    fi
 fi 

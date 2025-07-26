@@ -1,126 +1,239 @@
-# Translate Chat - Android 打包脚本说明
+# Translate Chat - 构建脚本使用指南
 
-**文件名(File):** README.md  
-**版本(Version):** v0.1.0  
-**作者(Author):** 深圳王哥 & AI  
-**创建日期(Created):** 2025/1/27  
-**简介(Description):** Ubuntu和macOS环境下Android APK自动化打包脚本使用指南
+## 概述
 
----
+本项目提供了一套完整的Android APK构建解决方案，支持macOS和Ubuntu环境，解决了Python 3.11兼容性问题。
 
-## 脚本文件说明
+## 文件结构
 
-### 1. Ubuntu环境脚本
-- **文件名:** `build_android_ubuntu.sh`
-- **适用系统:** Ubuntu 20.04/22.04 及衍生版本
-- **特点:** 官方支持最佳，配置简单，性能最优
-
-### 2. macOS环境脚本  
-- **文件名:** `build_android_macos.sh`
-- **适用系统:** macOS 10.15+ (Catalina及以上)
-- **特点:** 项目已优化，提供自动化配置
-
----
-
-## 使用方法
-
-### Ubuntu环境
-```bash
-# 1. 给脚本添加执行权限
-chmod +x scripts/build_android_ubuntu.sh
-
-# 2. 运行打包脚本
-bash scripts/build_android_ubuntu.sh
 ```
-
-### macOS环境
-```bash
-# 1. 给脚本添加执行权限
-chmod +x scripts/build_android_macos.sh
-
-# 2. 运行打包脚本
-bash scripts/build_android_macos.sh
+scripts/
+├── build_android_macos.sh      # macOS Android构建脚本
+├── build_android_ubuntu.sh     # Ubuntu Android构建脚本
+├── common_build_utils.sh       # 通用构建工具函数
+├── pyjnius_patch.sh           # pyjnius兼容性补丁脚本
+├── buildozer.spec             # Buildozer配置文件
+└── README.md                  # 本说明文档
 ```
-
----
-
-## 脚本功能对比
-
-| 功能 | Ubuntu脚本 | macOS脚本 |
-|------|------------|-----------|
-| 系统检测 | ✅ 自动检测Ubuntu | ❌ 无系统检测 |
-| 依赖安装 | ✅ 自动安装所有依赖 | ✅ 自动安装依赖 |
-| 镜像配置 | ✅ 清华源 | ✅ 清华源 |
-| Java配置 | ✅ OpenJDK 8 | ✅ OpenJDK 17 |
-| 虚拟环境 | ✅ 自动创建 | ✅ 自动创建 |
-| 构建清理 | ✅ 自动清理 | ❌ 无清理 |
-| 结果检查 | ✅ 详细检查 | ❌ 基础检查 |
-| 自动部署 | ✅ 可选部署 | ❌ 无部署选项 |
-
----
-
-## buildozer.spec 共用说明
-
-**是的，两个脚本可以共用同一个 `buildozer.spec` 文件！**
-
-### 原因：
-1. **跨平台兼容:** buildozer.spec 是纯文本配置文件，不依赖特定操作系统
-2. **统一配置:** 应用名称、版本、权限等配置在不同平台下保持一致
-3. **维护简单:** 只需要维护一个配置文件，减少出错概率
-
-### 当前配置特点：
-- **Python依赖:** 指定了精确的版本要求
-- **Android权限:** 包含应用所需的所有权限
-- **资源文件:** 自动包含assets目录下的所有文件
-- **排除目录:** 避免打包不必要的文件
-
----
 
 ## 环境要求
 
-### Ubuntu环境
-- **系统:** Ubuntu 20.04/22.04
-- **Python:** 3.7-3.10 (推荐3.8/3.9)
-- **Java:** OpenJDK 8
-- **内存:** 建议4GB以上
-- **磁盘:** 建议10GB以上可用空间
+### 统一环境配置
+- **Python**: 3.9-3.11 (推荐3.10)
+- **Java**: JDK 11+ (推荐JDK 17)
+- **Buildozer**: 1.5.0
+- **Cython**: 0.29.36
+- **pyjnius**: >=1.5.0
 
-### macOS环境
-- **系统:** macOS 10.15+ (Catalina及以上)
-- **Python:** 3.7-3.10 (推荐3.8/3.9)
-- **Java:** OpenJDK 17
-- **内存:** 建议4GB以上
-- **磁盘:** 建议10GB以上可用空间
+### 系统特定要求
 
----
+#### macOS
+- Homebrew
+- Python 3.10: `brew install python@3.10`
+- JDK 17: `brew install openjdk@17`
+- openssl@1.1: `brew install openssl@1.1`
 
-## 常见问题
+#### Ubuntu
+- Python 3.10+
+- JDK 17: `sudo apt install openjdk-17-jdk`
+- 系统依赖包 (脚本自动安装)
 
-### 1. 首次打包时间很长
-**原因:** 需要下载Android SDK/NDK (约2-3GB)
-**解决:** 使用科学上网工具或耐心等待
+## 使用方法
 
-### 2. 依赖安装失败
-**原因:** 网络问题或版本冲突
-**解决:** 检查网络连接，清理虚拟环境重新安装
+### 1. 快速开始
 
-### 3. Java版本问题
-**Ubuntu:** 脚本自动配置OpenJDK 8
-**macOS:** 脚本自动配置OpenJDK 17
+#### macOS用户
+```bash
+# 在项目根目录运行
+./scripts/build_android_macos.sh
+```
 
-### 4. 权限问题
-**解决:** 确保脚本有执行权限 `chmod +x scripts/*.sh`
+#### Ubuntu用户
+```bash
+# 在项目根目录运行
+./scripts/build_android_ubuntu.sh
+```
 
----
+### 2. 手动步骤 (可选)
 
-## 推荐使用顺序
+如果自动脚本遇到问题，可以按以下步骤手动执行：
 
-1. **首选:** Ubuntu环境 (官方支持最佳)
-2. **备选:** macOS环境 (项目已优化)
-3. **不推荐:** Windows环境 (需要WSL2，配置复杂)
+#### 步骤1: 环境检查
+```bash
+# 检查Python版本 (需要3.9-3.11)
+python3 --version
 
----
+# 检查Java版本 (需要11+)
+java -version
+```
 
-## 联系支持
+#### 步骤2: 创建虚拟环境
+```bash
+# 创建虚拟环境
+python3 -m venv venv
 
-如有问题请联系：manwjh@126.com 
+# 激活虚拟环境
+source venv/bin/activate
+```
+
+#### 步骤3: 安装依赖
+```bash
+# 升级pip
+pip install --upgrade pip setuptools wheel
+
+# 安装构建工具
+pip install cython==0.29.36 buildozer==1.5.0
+
+# 安装项目依赖
+pip install -r requirements-android.txt
+```
+
+#### 步骤4: 构建APK
+```bash
+# 清理之前的构建
+buildozer android clean
+
+# 开始构建
+buildozer -v android debug
+```
+
+### 3. 解决Python 3.11兼容性问题
+
+如果使用Python 3.11遇到pyjnius编译错误，运行补丁脚本：
+
+```bash
+# 自动查找并修复pyjnius
+./scripts/pyjnius_patch.sh
+
+# 或手动指定pyjnius目录
+./scripts/pyjnius_patch.sh /path/to/pyjnius
+```
+
+## 配置说明
+
+### buildozer.spec 主要配置
+
+```ini
+# 应用信息
+title = Translate Chat
+package.name = translatechat
+package.domain = org.translatechat
+version = 1.0.0
+
+# 依赖配置
+requirements = python3,%(source.dir)s/requirements-android.txt
+
+# Android配置
+android.api = 33
+android.minapi = 21
+android.ndk = 25b
+android.archs = arm64-v8a, armeabi-v7a
+android.permissions = android.permission.INTERNET,android.permission.RECORD_AUDIO,...
+
+# Python for Android配置
+p4a.bootstrap = sdl2
+p4a.setup_py = false
+```
+
+### requirements-android.txt 依赖锁定
+
+```
+# 核心框架
+kivy>=2.3.0,<3.0.0
+kivymd==1.1.1
+
+# 音频视频处理
+plyer>=2.1.0,<3.0.0
+ffpyplayer>=4.5.0,<5.0.0
+
+# 网络通信
+websocket-client>=1.6.0,<2.0.0
+aiohttp>=3.8.0,<4.0.0
+
+# Android兼容性关键依赖
+pyjnius>=1.5.0,<2.0.0
+
+# 构建工具
+buildozer>=1.5.0,<2.0.0
+cython>=0.29.36,<0.30.0
+```
+
+## 常见问题解决
+
+### 1. pyjnius编译错误
+**错误信息**: `undeclared name not builtin: long`
+
+**解决方案**:
+```bash
+# 运行补丁脚本
+./scripts/pyjnius_patch.sh
+```
+
+### 2. Java版本不兼容
+**错误信息**: `Java version not supported`
+
+**解决方案**:
+- macOS: `brew install openjdk@17`
+- Ubuntu: `sudo apt install openjdk-17-jdk`
+
+### 3. Python版本不兼容
+**错误信息**: `Python version not supported`
+
+**解决方案**:
+- 使用Python 3.9-3.11版本
+- 推荐使用Python 3.10
+
+### 4. 网络下载慢
+**解决方案**:
+- 脚本已配置清华源镜像
+- 使用本地SDL2文件 (放在/tmp目录)
+- 使用科学上网工具
+
+### 5. 权限问题
+**解决方案**:
+```bash
+# 确保脚本有执行权限
+chmod +x scripts/*.sh
+
+# 确保在项目根目录运行
+cd /path/to/Translate-Chat
+```
+
+## 构建输出
+
+成功构建后，APK文件将生成在 `bin/` 目录：
+
+```
+bin/
+├── translatechat-1.0.0-arm64-v8a_armeabi-v7a-debug.apk
+└── translatechat-1.0.0-arm64-v8a_armeabi-v7a-debug.aab
+```
+
+## 部署到设备
+
+```bash
+# 连接Android设备并开启USB调试
+# 部署并运行
+buildozer android deploy run
+
+# 查看日志
+buildozer android logcat
+```
+
+## 技术支持
+
+如果遇到问题，请：
+
+1. 检查环境要求是否满足
+2. 查看构建日志中的错误信息
+3. 运行补丁脚本解决兼容性问题
+4. 清理构建缓存后重试
+
+## 更新日志
+
+### v2.0.0 (2025/1/27)
+- 统一macOS和Ubuntu环境配置
+- 解决Python 3.11兼容性问题
+- 锁定所有关键依赖版本
+- 添加pyjnius自动补丁功能
+- 优化错误处理和日志输出 

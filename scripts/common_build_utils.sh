@@ -1,177 +1,300 @@
 #!/bin/bash
-# 通用打包工具函数脚本 / Common Build Utilities Script
+# Translate Chat - 通用构建工具脚本
 # 文件名(File): common_build_utils.sh
-# 创建日期(Created): 2024/06/09
-# 作者(Author): AI Assistant
-# 简介(Description): 提供SDL2本地包检测/下载、环境变量设置、Python依赖wheels准备等通用函数，供主打包脚本调用。
+# 版本(Version): v1.0.0
+# 创建日期(Created): 2025/1/27
+# 简介(Description): 通用构建工具函数，支持macOS和Ubuntu环境
 
-set -e
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# 检查并设置SDL2相关环境变量
-# 检查/tmp下是否有SDL2相关包，无则自动调用下载脚本
-verify_and_prepare_sdl2() {
-    local sdl2_files=(
-        "SDL2-2.28.5.tar"
-        "SDL2_image-2.8.0.tar"
-        "SDL_image-release-2.0.tar"  # 兼容新旧命名
-        "SDL2_mixer-2.6.3.tar"
-        "SDL2_ttf-2.20.2.tar"
-        "SDL_ttf-release-2.0.15.tar"  # 兼容旧版命名
-    )
-    local all_files_exist=true
-    local sdl2_ttf_found=false
-    local sdl2_image_found=false
-    
-    # 检查文件是否存在（支持.tar和.tar.gz两种格式）
-    for file in "${sdl2_files[@]}"; do
-        local base_name="${file%.tar}"
-        local found=false
-        
-        # 检查.tar文件
-        if [ -f "/tmp/$file" ]; then
-            found=true
-        fi
-        # 检查.tar.gz文件
-        if [ -f "/tmp/${base_name}.tar.gz" ]; then
-            found=true
-        fi
-        
-        if [ "$found" = true ]; then
-            if [[ "$file" == *"ttf"* ]]; then sdl2_ttf_found=true; fi
-            if [[ "$file" == *"image"* ]]; then sdl2_image_found=true; fi
+# 日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 检查系统类型
+detect_system() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    elif [[ -f /etc/os-release ]]; then
+        if grep -q "Ubuntu" /etc/os-release; then
+            echo "ubuntu"
         else
-            if [[ "$file" == *"ttf"* ]] || [[ "$file" == *"image"* ]]; then
-                continue
-            else
-                all_files_exist=false
-            fi
+            echo "linux"
         fi
-    done
-    
-    if [ "$sdl2_ttf_found" = false ] || [ "$sdl2_image_found" = false ]; then
-        all_files_exist=false
-    fi
-    
-    if [ "$all_files_exist" = false ]; then
-        echo "[INFO] 检测到SDL2本地包不全，自动调用统一预下载脚本..."
-        bash ./scripts/dependency_manager.sh
-    fi
-    
-    # 设置环境变量（支持.tar和.tar.gz两种格式）
-    export SDL2_LOCAL_PATH="/tmp"
-    
-    # SDL2_mixer环境变量
-    if [ -f "/tmp/SDL2_mixer-2.6.3.tar" ]; then
-        export SDL2_MIXER_LOCAL_PATH="/tmp/SDL2_mixer-2.6.3.tar"
-    elif [ -f "/tmp/SDL2_mixer-2.6.3.tar.gz" ]; then
-        export SDL2_MIXER_LOCAL_PATH="/tmp/SDL2_mixer-2.6.3.tar.gz"
     else
-        export SDL2_MIXER_LOCAL_PATH=""
+        echo "unknown"
     fi
-    
-    # SDL2_image环境变量
-    if [ -f "/tmp/SDL2_image-2.8.0.tar" ]; then
-        export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL2_image-2.8.0.tar"
-    elif [ -f "/tmp/SDL2_image-2.8.0.tar.gz" ]; then
-        export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL2_image-2.8.0.tar.gz"
-    elif [ -f "/tmp/SDL_image-release-2.0.tar" ]; then
-        export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL_image-release-2.0.tar"
-    elif [ -f "/tmp/SDL_image-release-2.0.tar.gz" ]; then
-        export SDL2_IMAGE_LOCAL_PATH="/tmp/SDL_image-release-2.0.tar.gz"
-    else
-        export SDL2_IMAGE_LOCAL_PATH=""
-    fi
-    
-    # SDL2_ttf环境变量
-    if [ -f "/tmp/SDL2_ttf-2.20.2.tar" ]; then
-        export SDL2_TTF_LOCAL_PATH="/tmp/SDL2_ttf-2.20.2.tar"
-    elif [ -f "/tmp/SDL2_ttf-2.20.2.tar.gz" ]; then
-        export SDL2_TTF_LOCAL_PATH="/tmp/SDL2_ttf-2.20.2.tar.gz"
-    elif [ -f "/tmp/SDL_ttf-release-2.0.15.tar" ]; then
-        export SDL2_TTF_LOCAL_PATH="/tmp/SDL_ttf-release-2.0.15.tar"
-    elif [ -f "/tmp/SDL_ttf-release-2.0.15.tar.gz" ]; then
-        export SDL2_TTF_LOCAL_PATH="/tmp/SDL_ttf-release-2.0.15.tar.gz"
-    else
-        export SDL2_TTF_LOCAL_PATH=""
-    fi
-    
-    echo "[INFO] SDL2本地包环境变量已设置。"
-    echo "  SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
-    echo "  SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
-    echo "  SDL2_IMAGE_LOCAL_PATH: $SDL2_IMAGE_LOCAL_PATH"
-    echo "  SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
 }
 
-# 下载Python依赖到本地wheels目录，便于离线安装
-prepare_python_wheels() {
-    mkdir -p ./wheels
-    if [ -f requirements-android.txt ]; then
-        pip download -r requirements-android.txt -d ./wheels
+# 检查Python版本
+check_python_version() {
+    local python_cmd="$1"
+    local version=$($python_cmd --version 2>&1 | cut -d' ' -f2)
+    local major=$(echo $version | cut -d'.' -f1)
+    local minor=$(echo $version | cut -d'.' -f2)
+    
+    log_info "检测到Python版本: $version"
+    
+    if [[ $major -eq 3 && $minor -ge 9 && $minor -le 11 ]]; then
+        log_success "Python版本兼容: $version"
+        return 0
+    else
+        log_error "Python版本不兼容: $version (需要Python 3.9-3.11)"
+        return 1
     fi
-    if [ -f requirements-desktop.txt ]; then
-        pip download -r requirements-desktop.txt -d ./wheels
-    fi
-    pip download buildozer cython -d ./wheels
-    echo "[INFO] Python依赖已下载到./wheels目录。"
 }
 
-# 优先本地wheels安装Python依赖
-install_python_wheels() {
-    if [ -d ./wheels ]; then
-        if [ -f requirements-android.txt ]; then
-            pip install --no-index --find-links=./wheels -r requirements-android.txt
-        fi
-        if [ -f requirements-desktop.txt ]; then
-            pip install --no-index --find-links=./wheels -r requirements-desktop.txt
-        fi
+# 检查Java版本
+check_java_version() {
+    if ! command -v java &> /dev/null; then
+        log_error "Java未安装"
+        return 1
     fi
-    echo "[INFO] Python依赖已本地安装。"
+    
+    local version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
+    local major=$(echo $version | cut -d'.' -f1)
+    
+    log_info "检测到Java版本: $version"
+    
+    if [[ $major -ge 11 ]]; then
+        log_success "Java版本兼容: $version"
+        return 0
+    else
+        log_warning "Java版本较低: $version (推荐Java 11+)"
+        return 0
+    fi
 }
 
-# 通用本地依赖检测和准备函数
-# 检查/tmp下是否有各种依赖包，优先使用本地文件
+# 设置Java环境变量
+setup_java_env() {
+    local system=$(detect_system)
+    
+    if [[ "$system" == "macos" ]]; then
+        # macOS: 优先使用JDK 17
+        if [[ -d "/opt/homebrew/opt/openjdk@17" ]]; then
+            export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            log_success "设置JAVA_HOME为: $JAVA_HOME"
+        elif [[ -d "/usr/local/opt/openjdk@17" ]]; then
+            export JAVA_HOME="/usr/local/opt/openjdk@17"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            log_success "设置JAVA_HOME为: $JAVA_HOME"
+        else
+            log_warning "未找到JDK 17，尝试使用系统Java"
+        fi
+    elif [[ "$system" == "ubuntu" ]]; then
+        # Ubuntu: 优先使用JDK 17，回退到JDK 11
+        if [[ -d "/usr/lib/jvm/java-17-openjdk-amd64" ]]; then
+            export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            log_success "设置JAVA_HOME为: $JAVA_HOME"
+        elif [[ -d "/usr/lib/jvm/java-11-openjdk-amd64" ]]; then
+            export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            log_success "设置JAVA_HOME为: $JAVA_HOME"
+        elif [[ -d "/usr/lib/jvm/java-8-openjdk-amd64" ]]; then
+            export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            log_warning "使用JDK 8: $JAVA_HOME (推荐升级到JDK 11+)"
+        else
+            log_error "未找到合适的Java环境"
+            return 1
+        fi
+    fi
+}
+
+# 配置pip镜像
+setup_pip_mirror() {
+    log_info "配置pip国内镜像..."
+    mkdir -p ~/.pip
+    cat > ~/.pip/pip.conf <<EOF
+[global]
+index-url = https://pypi.tuna.tsinghua.edu.cn/simple
+trusted-host = pypi.tuna.tsinghua.edu.cn
+timeout = 120
+EOF
+    log_success "pip镜像已配置为清华源"
+}
+
+# 检查并准备本地依赖包
 verify_and_prepare_all_dependencies() {
-    echo "[INFO] 开始检查本地依赖包..."
+    log_info "检查本地依赖包..."
     
-    # 1. 检查SDL2相关依赖
-    echo "[INFO] 检查SDL2本地依赖..."
-    verify_and_prepare_sdl2
-    
-    # 2. 检查Python wheels依赖
-    echo "[INFO] 检查Python wheels本地依赖..."
-    if [ ! -d "./wheels" ] || [ -z "$(ls -A ./wheels 2>/dev/null)" ]; then
-        echo "[INFO] Python wheels目录为空，准备下载..."
-        prepare_python_wheels
-    else
-        echo "[INFO] Python wheels目录已存在，将优先使用本地文件"
-    fi
-    
-    # 3. 检查Android SDK/NDK本地路径（如果设置了环境变量）
-    if [ -n "$ANDROID_SDK_ROOT" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
-        echo "[INFO] 检测到Android SDK本地路径: $ANDROID_SDK_ROOT"
-        export ANDROID_SDK_ROOT
-    fi
-    
-    if [ -n "$ANDROID_NDK_ROOT" ] && [ -d "$ANDROID_NDK_ROOT" ]; then
-        echo "[INFO] 检测到Android NDK本地路径: $ANDROID_NDK_ROOT"
-        export ANDROID_NDK_ROOT
-    fi
-    
-    # 4. 检查其他可能的本地依赖包
-    local common_deps=(
-        "openssl"
-        "python"
-        "java"
-        "gradle"
-        "cmake"
+    # 检查SDL2本地文件
+    local sdl2_paths=(
+        "/tmp/SDL2-2.28.5.tar"
+        "/tmp/SDL2_mixer-2.6.3.tar"
+        "/tmp/SDL2_image-2.8.0.tar"
+        "/tmp/SDL2_ttf-2.20.2.tar"
     )
     
-    echo "[INFO] 检查其他本地依赖..."
-    for dep in "${common_deps[@]}"; do
-        if command -v "$dep" >/dev/null 2>&1; then
-            echo "[INFO] ✓ 找到本地 $dep: $(which $dep)"
+    for path in "${sdl2_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            log_success "找到本地文件: $(basename $path)"
+            case "$path" in
+                *SDL2-*.tar)
+                    export SDL2_LOCAL_PATH="$path"
+                    ;;
+                *SDL2_mixer*.tar)
+                    export SDL2_MIXER_LOCAL_PATH="$path"
+                    ;;
+                *SDL2_image*.tar)
+                    export SDL2_IMAGE_LOCAL_PATH="$path"
+                    ;;
+                *SDL2_ttf*.tar)
+                    export SDL2_TTF_LOCAL_PATH="$path"
+                    ;;
+            esac
+        else
+            log_warning "未找到本地文件: $(basename $path)"
         fi
     done
     
-    echo "[INFO] 本地依赖检查完成"
-} 
+    # 显示环境变量
+    if [[ -n "$SDL2_LOCAL_PATH" ]]; then
+        log_info "SDL2本地文件配置:"
+        [[ -n "$SDL2_LOCAL_PATH" ]] && echo "  - SDL2_LOCAL_PATH: $SDL2_LOCAL_PATH"
+        [[ -n "$SDL2_MIXER_LOCAL_PATH" ]] && echo "  - SDL2_MIXER_LOCAL_PATH: $SDL2_MIXER_LOCAL_PATH"
+        [[ -n "$SDL2_IMAGE_LOCAL_PATH" ]] && echo "  - SDL2_IMAGE_LOCAL_PATH: $SDL2_IMAGE_LOCAL_PATH"
+        [[ -n "$SDL2_TTF_LOCAL_PATH" ]] && echo "  - SDL2_TTF_LOCAL_PATH: $SDL2_TTF_LOCAL_PATH"
+    fi
+}
+
+# 创建Python虚拟环境
+create_venv() {
+    local python_cmd="$1"
+    local venv_dir="$2"
+    
+    if [[ ! -d "$venv_dir" ]]; then
+        log_info "创建Python虚拟环境: $venv_dir"
+        $python_cmd -m venv "$venv_dir"
+        if [[ $? -eq 0 ]]; then
+            log_success "虚拟环境创建成功"
+        else
+            log_error "虚拟环境创建失败"
+            return 1
+        fi
+    else
+        log_info "虚拟环境已存在: $venv_dir"
+    fi
+}
+
+# 安装Python依赖
+install_python_deps() {
+    local venv_dir="$1"
+    
+    log_info "激活虚拟环境并安装依赖..."
+    source "$venv_dir/bin/activate"
+    
+    # 升级pip
+    pip install --upgrade pip setuptools wheel
+    
+    # 安装基础工具
+    pip install cython==0.29.36
+    
+    # 安装buildozer
+    pip install buildozer==1.5.0
+    
+    log_success "Python依赖安装完成"
+}
+
+# 清理构建缓存
+clean_build_cache() {
+    log_info "清理构建缓存..."
+    
+    if [[ -d ".buildozer" ]]; then
+        if command -v buildozer &> /dev/null; then
+            if buildozer android clean; then
+                log_success "buildozer清理成功"
+            else
+                log_warning "buildozer清理失败，尝试手动清理..."
+                rm -rf .buildozer
+                log_success "已手动清理.buildozer目录"
+            fi
+        else
+            rm -rf .buildozer
+            log_success "已手动清理.buildozer目录"
+        fi
+    else
+        log_info "无需清理，.buildozer目录不存在"
+    fi
+}
+
+# 检查构建结果
+check_build_result() {
+    if [[ -d "bin" ]]; then
+        local apk_count=$(ls bin/*.apk 2>/dev/null | wc -l)
+        if [[ $apk_count -gt 0 ]]; then
+            log_success "构建成功！找到 $apk_count 个APK文件:"
+            ls -lh bin/*.apk
+            return 0
+        else
+            log_error "构建失败：未找到APK文件"
+            return 1
+        fi
+    else
+        log_error "构建失败：未找到bin目录"
+        return 1
+    fi
+}
+
+# 环境检查主函数
+check_environment() {
+    local system=$(detect_system)
+    log_info "检测到系统: $system"
+    
+    # 检查Python
+    local python_cmd="python3"
+    if ! check_python_version "$python_cmd"; then
+        log_error "Python环境检查失败"
+        return 1
+    fi
+    
+    # 检查Java
+    if ! check_java_version; then
+        log_error "Java环境检查失败"
+        return 1
+    fi
+    
+    # 设置Java环境
+    setup_java_env
+    
+    log_success "环境检查通过"
+    return 0
+}
+
+# 错误处理函数
+handle_error() {
+    local exit_code=$?
+    log_error "构建过程中发生错误 (退出码: $exit_code)"
+    log_info "请检查日志并修复问题后重试"
+    exit $exit_code
+}
+
+# 设置错误处理
+trap handle_error ERR
+
+# 导出函数供其他脚本使用
+export -f log_info log_success log_warning log_error
+export -f detect_system check_python_version check_java_version
+export -f setup_java_env setup_pip_mirror verify_and_prepare_all_dependencies
+export -f create_venv install_python_deps clean_build_cache check_build_result
+export -f check_environment handle_error 
