@@ -1,6 +1,6 @@
 # =============================================================
 # 文件名(File): config_manager.py
-# 版本(Version): v2.0.0
+# 版本(Version): v2.0.1
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
 # 简介(Description): 配置管理模块，移除Android支持，专注桌面平台
@@ -150,13 +150,21 @@ class ConfigManager:
             return False
         
         try:
-            # 验证必要的配置项
-            required_keys = ['ASR_APP_ID', 'ASR_ACCESS_KEY', 'LLM_API_KEY']
-            if not all(config_data.get(key) for key in required_keys):
-                logger.error("配置数据不完整，缺少必要的API密钥")
+            # 检查是否有任何API密钥或翻译设置
+            api_keys = ['ASR_APP_ID', 'ASR_ACCESS_KEY', 'LLM_API_KEY']
+            has_api_keys = any(config_data.get(key) for key in api_keys)
+            has_translation_setting = 'SHOW_TRANSLATION' in config_data
+            
+            if not has_api_keys and not has_translation_setting:
+                logger.error("配置数据为空，至少需要提供一个API密钥或翻译设置")
                 return False
             
-            success = self.secure_storage.save_config(config_data)
+            # 如果有现有配置，合并配置
+            existing_config = self.secure_storage.load_config() or {}
+            merged_config = existing_config.copy()
+            merged_config.update(config_data)
+            
+            success = self.secure_storage.save_config(merged_config)
             if success:
                 logger.info("配置已成功保存到加密存储")
                 # 重新加载配置
@@ -206,11 +214,11 @@ class ConfigManager:
     def _get_config_source(self) -> str:
         """获取配置来源"""
         if os.environ.get('ASR_APP_ID') and os.environ.get('ASR_ACCESS_KEY') and os.environ.get('LLM_API_KEY'):
-            return "环境变量"
+            return "Environment Variables"
         elif self.secure_storage and self.secure_storage.config_exists():
-            return "加密存储"
+            return "Encrypted Storage"
         else:
-            return "默认配置"
+            return "Default Config"
 
 # 全局配置管理器实例
 config_manager = ConfigManager() 

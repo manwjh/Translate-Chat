@@ -1,6 +1,6 @@
 # =============================================================
 # 文件名(File): main_window_kivy.py
-# 版本(Version): v2.0.0
+# 版本(Version): v2.0.1
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
 # 简介(Description): KivyMD 版主界面，移除Android支持，专注桌面端体验
@@ -8,9 +8,16 @@
 
 # 使用系统字体，支持多语言显示
 import os
+import sys
 
 # 设置桌面端窗口大小
 os.environ["KIVY_LOG_LEVEL"] = "error"
+
+# 确保UTF-8编码
+if sys.platform.startswith('darwin'):  # macOS
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    os.environ['LC_ALL'] = 'zh_CN.UTF-8'
+    os.environ['LANG'] = 'zh_CN.UTF-8'
 
 from kivy.lang import Builder
 from kivy.properties import BooleanProperty, ObjectProperty, StringProperty, ListProperty
@@ -29,6 +36,7 @@ from kivymd.uix.selectioncontrol import MDSwitch
 from kivy.core.text import LabelBase
 from kivy.core.window import Window
 from kivymd.uix.textfield import MDTextField
+from kivy.uix.textinput import TextInput
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.core.clipboard import Clipboard
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -47,12 +55,23 @@ from kivymd.uix.list import OneLineListItem
 def clean_text(text):
     if not isinstance(text, str):
         return text
-    # 去除常见不可见字符和替换符号，保留所有可打印的 Unicode 字符（多语言兼容）
-    text = text.replace('\uFFFD', '').replace('\u200B', '').replace('\uFEFF', '')
-    # 去除所有 C0/C1 控制字符（除换行、制表符外）
-    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', '', text)
-    # 去除字符串首尾空白
-    return text.strip()
+    try:
+        # 确保文本是UTF-8编码
+        if isinstance(text, bytes):
+            text = text.decode('utf-8')
+        elif isinstance(text, str):
+            # 重新编码确保UTF-8
+            text.encode('utf-8').decode('utf-8')
+        
+        # 去除常见不可见字符和替换符号，保留所有可打印的 Unicode 字符（多语言兼容）
+        text = text.replace('\uFFFD', '').replace('\u200B', '').replace('\uFEFF', '')
+        # 去除所有 C0/C1 控制字符（除换行、制表符外）
+        text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', '', text)
+        # 去除字符串首尾空白
+        return text.strip()
+    except UnicodeError as e:
+        print(f"[ERROR] Unicode error in clean_text: {e}, text: {repr(text)}")
+        return str(text) if text else ""
 
 from audio_capture import AudioStream
 from asr_client import VolcanoASRClientAsync
@@ -62,22 +81,17 @@ from translator import Translator
 from hotwords import get_hotwords, add_hotword
 from utils.file_downloader import FileDownloader
 
-# 借鉴 test_font_fix.py 的成功经验：在模块级别注册字体
+# 使用系统注册的字体，支持中文显示
+# 确保字体只注册一次，避免重复注册
 try:
     from utils.font_utils import register_system_font
     font_name = register_system_font()
-    print(f"[DEBUG] Font registered at module level: {font_name}")
+    print(f"[DEBUG] Main window font registered: {font_name}")
 except Exception as e:
-    print(f"[DEBUG] Font registration failed at module level: {e}")
+    print(f"[DEBUG] Main window font registration failed: {e}")
     font_name = 'Roboto'
 
 KV = '''
-<MDLabel>:
-    font_name: 'SystemFont'
-<MDButtonText>:
-    font_name: 'SystemFont'
-<MDToolbar>:
-    font_name: 'SystemFont'
 
 <ChatBubble@MDCard>:
     orientation: 'vertical'
@@ -90,39 +104,34 @@ KV = '''
     md_bg_color: (0.1, 0.6, 0.9, 1) if self.selected else ((0.28, 0.38, 0.68, 1) if self.hovered else (.18, .18, .18, 1))
     elevation: 0
     # pos_hint: {"x": 0}  # 可选，已满宽无需定位
-    MDLabel:
-        text: root.corrected_text if root.corrected_text and root.corrected_text != root.original_text else root.original_text
+    Label:
+        text: root.get_display_text()
         font_name: 'SystemFont'
-        font_style: 'Body2'
-        theme_text_color: 'Custom'
-        text_color: 1, 1, 1, 1
-        adaptive_height: True
+        font_size: '16sp'
+        color: 1, 1, 1, 1
         size_hint_x: 1
         size_hint_y: None
         height: self.texture_size[1]
         text_size: self.width, None
         halign: 'left'
         valign: 'middle'
-    MDLabel:
+
+    Label:
         text: root.translation if root.translation and app.show_translation else ''
         font_name: 'SystemFont'
-        font_style: 'Body1'
-        theme_text_color: 'Custom'
-        text_color: .7, .7, .7, 1
-        adaptive_height: True
+        font_size: '14sp'
+        color: .7, .7, .7, 1
         size_hint_x: 1
         size_hint_y: None
         height: self.texture_size[1]
         text_size: self.width, None
         halign: 'left'
         valign: 'middle'
-    MDLabel:
+    Label:
         text: root.timeout_tip if root.timeout_tip else ''
         font_name: 'SystemFont'
-        font_style: 'Body1'
-        theme_text_color: 'Custom'
-        text_color: 1, 0.2, 0.2, 1
-        adaptive_height: True
+        font_size: '12sp'
+        color: 1, 0.2, 0.2, 1
         size_hint_x: 1
         size_hint_y: None
         height: self.texture_size[1]
@@ -141,14 +150,12 @@ KV = '''
     md_bg_color: 1, 0.85, 0.2, 0.18
     elevation: 0
     # pos_hint: {"x": 0}
-    MDLabel:
+    Label:
         text: root.text
         font_name: 'SystemFont'
-        font_style: 'H5'
+        font_size: '18sp'
         italic: True
-        theme_text_color: 'Custom'
-        text_color: 1, 0.85, 0.2, 1
-        adaptive_height: True
+        color: 1, 0.85, 0.2, 1
         size_hint_x: 1
         size_hint_y: None
         height: self.texture_size[1]
@@ -159,15 +166,20 @@ KV = '''
 <MainWidget>:
     orientation: 'vertical'
     md_bg_color: .12, .12, .12, 1
+    
     MDTopAppBar:
-        title: 'Translate Chat'
+        title: "Translate Chat"
         right_action_items: [["menu", lambda x: app.open_api_config()]]
-        elevation: 0
+        elevation: 4
         md_bg_color: app.theme_cls.primary_color
+        pos_hint: {'top': 1}
+        size_hint_y: None
+        height: dp(56)
 
     ScrollView:
         size_hint_y: 1
         do_scroll_x: False
+        pos_hint: {'top': 0.9, 'bottom': 0.2}
         MDBoxLayout:
             id: chat_area
             orientation: 'vertical'
@@ -175,27 +187,7 @@ KV = '''
             padding: dp(8), dp(8)
             spacing: dp(8)
 
-    # 热词输入与显示区域
-    MDBoxLayout:
-        id: hotwords_box
-        orientation: 'horizontal'
-        size_hint_y: None
-        height: dp(40)
-        padding: dp(8), 0
-        spacing: dp(8)
-        MDTextField:
-            id: hotword_input
-            hint_text: ""
-            font_name: 'SystemFont'
-            size_hint_x: 0.5
-            on_text_validate: root.add_hotword(self.text)
-        MDLabel:
-            id: hotwords_label
-            text: root.hotwords_display
-            font_name: 'SystemFont'
-            size_hint_x: 1
-            halign: 'left'
-            valign: 'middle'
+
 
     MDBoxLayout:
         orientation: 'horizontal'
@@ -221,19 +213,7 @@ KV = '''
             font_name: 'SystemFont'
             on_release: root.on_download()
         Widget:
-        MDBoxLayout:
-            orientation: 'horizontal'
-            spacing: dp(8)
-            size_hint_x: None
-            width: self.minimum_width
-            pos_hint: {"center_y": 0.5}
-            MDSwitch:
-                id: translate_switch
-                size_hint: None, None
-                size: dp(48), dp(32)
-                pos_hint: {"center_y": 0.5}
-                active: app.show_translation
-                on_active: app.toggle_translation(self.active)
+        # 翻译开关已移动到系统配置页面
 
 <MainScreen>:
     MainWidget:
@@ -261,7 +241,7 @@ class HoverBehavior(object):
 class MainWidget(MDBoxLayout):
     asr_running = BooleanProperty(False)
     mic_btn_text = ObjectProperty('Mic ON')
-    # 新增属性
+    # 热词相关属性（保留代码结构）
     hotwords = ListProperty([])
     hotwords_display = StringProperty('[ ]')
 
@@ -286,7 +266,7 @@ class MainWidget(MDBoxLayout):
         self.loop = None
         self.interim_bubble = None  # 只保留一个interim气泡
         self._asr_call_count = 0  # 调用计数
-        # 初始化热词
+        # 初始化热词（保留代码结构）
         self.hotwords = get_hotwords()
         self.update_hotwords_display()
         # 绑定键盘事件
@@ -294,13 +274,15 @@ class MainWidget(MDBoxLayout):
         Window.bind(on_key_down=self.on_key_down)
 
     def add_hotword(self, word):
+        # 热词添加方法（保留代码结构）
         word = clean_text(word)
         if word and add_hotword(word):
             self.hotwords = get_hotwords()
             self.update_hotwords_display()
-        self.ids.hotword_input.text = ''
+        # self.ids.hotword_input.text = ''  # 已移除UI元素
 
     def update_hotwords_display(self):
+        # 热词显示更新方法（保留代码结构）
         if self.hotwords:
             self.hotwords_display = '[' + '，'.join(self.hotwords) + '，]'
         else:
@@ -331,8 +313,7 @@ class MainWidget(MDBoxLayout):
         self.ids.chat_area.clear_widgets()
         self.scroll_to_bottom()
 
-    def on_translate_checkbox_changed(self, active):
-        pass  # 已废弃，统一用app.show_translation
+    # 翻译开关已移动到系统配置页面
         
     def on_download(self):
         """下载所有记录到txt文件"""
@@ -387,6 +368,7 @@ class MainWidget(MDBoxLayout):
         translation_task = asyncio.create_task(self._translation_worker(translation_queue))
         
         async def on_result(response):
+            print("[DEBUG] ASR原始payload_msg:", repr(response.payload_msg))  # 新增调试打印
             nonlocal last_text, last_emit_time, no_update_count
             if not self.asr_running:
                 return
@@ -395,6 +377,7 @@ class MainWidget(MDBoxLayout):
             if response.payload_msg:
                 result = response.payload_msg.get('result', {})
                 asr_utterances = result.get('utterances', [])
+                print("[DEBUG] ASR原始utterances:", repr(asr_utterances))  # 新增调试打印
                 updated = False
                 current_text = None
                 new_definite_utterances = []
@@ -475,11 +458,13 @@ class MainWidget(MDBoxLayout):
                 text = item['text']
                 utterance = item['utterance']
                 
+                print("[DEBUG] 翻译前文本:", repr(text))  # 新增调试打印
                 # 执行翻译
                 try:
                     src_lang = self.lang_detect.detect(text)
                     tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
                     translation_result = await self.translator.translate(text, src_lang=src_lang, tgt_lang=tgt_lang)
+                    print("[DEBUG] 翻译API返回:", repr(translation_result))  # 新增调试打印
                     
                     # 更新utterance的翻译结果
                     if isinstance(translation_result, dict):
@@ -506,12 +491,15 @@ class MainWidget(MDBoxLayout):
     def _update_utterance_translation(self, utterance):
         """在主线程中更新utterance的翻译结果"""
         try:
+            print(f"[DEBUG] _update_utterance_translation: utterance_id={id(utterance)}, translation={repr(utterance.get('translation', ''))}, corrected={repr(utterance.get('corrected', ''))}")
             # 查找对应的气泡并更新翻译
             chat_area = self.ids.chat_area
             for child in chat_area.children:
                 if hasattr(child, 'utterance_id') and child.utterance_id == id(utterance):
+                    print(f"[DEBUG] 找到匹配的气泡，更新翻译")
                     child.translation = utterance.get('translation', '')
                     child.corrected_text = utterance.get('corrected', '')
+                    print(f"[DEBUG] 气泡更新后: translation={repr(child.translation)}, corrected_text={repr(child.corrected_text)}")
                     break
         except Exception as e:
             print(f"[UI更新] 更新翻译失败: {e}")
@@ -525,10 +513,9 @@ class MainWidget(MDBoxLayout):
     @mainthread
     def _show_asr_utterances(self, utterances):
         self._asr_call_count += 1
-        # 移除过于详细的调试信息，只在需要时启用
-        # print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
+        print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
         chat_area = self.ids.chat_area
-        # print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
+        print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
         # 1. 固化分句：增量添加到 final_bubbles，历史内容不丢失
         for utt in utterances:
             original_text = utt.get('text', '')
@@ -539,9 +526,11 @@ class MainWidget(MDBoxLayout):
             start_time = utt.get('start_time')
             end_time = utt.get('end_time')
             key = (original_text, start_time, end_time)
+            print(f"[DEBUG] 处理utterance: definite={definite}, original_text={repr(original_text)}, corrected_text={repr(corrected_text)}, translation={repr(translation)}")
             if definite and original_text and key not in self.final_utterance_keys:
                 utterance_id = id(utt)  # 使用utterance的id作为标识
                 bubble = self.create_bubble(original_text, corrected_text, translation, timeout_tip, utterance_id)
+                print(f"[DEBUG] 创建气泡: original_text={repr(bubble.original_text)}, corrected_text={repr(bubble.corrected_text)}, translation={repr(bubble.translation)}")
                 self.final_bubbles.append(bubble)
                 self.final_utterance_keys.add(key)
         # 2. 清空并重绘所有固化分句
@@ -562,10 +551,16 @@ class MainWidget(MDBoxLayout):
         # print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
 
     def create_bubble(self, original_text, corrected_text, translation, timeout_tip, utterance_id=None):
+        print(f"[DEBUG] create_bubble输入: original_text={repr(original_text)}, corrected_text={repr(corrected_text)}, translation={repr(translation)}")
+        cleaned_original = clean_text(original_text)
+        cleaned_corrected = clean_text(corrected_text) if corrected_text else ''
+        cleaned_translation = translation or ''
+        print(f"[DEBUG] create_bubble清理后: cleaned_original={repr(cleaned_original)}, cleaned_corrected={repr(cleaned_corrected)}, cleaned_translation={repr(cleaned_translation)}")
+        
         bubble = ChatBubble(
-            original_text=clean_text(original_text), 
-            corrected_text=clean_text(corrected_text) if corrected_text else '',
-            translation=translation or '', 
+            original_text=cleaned_original, 
+            corrected_text=cleaned_corrected,
+            translation=cleaned_translation, 
             timeout_tip=timeout_tip or ''
         )
         if utterance_id:
@@ -597,6 +592,48 @@ class ChatBubble(HoverBehavior, MDCard):
     timeout_tip = StringProperty()
     selected = BooleanProperty(False)
 
+    def on_original_text(self, instance, value):
+        print(f"[DEBUG] ChatBubble original_text changed: {repr(value)}")
+        # 确保文本是UTF-8编码
+        if isinstance(value, str):
+            try:
+                # 尝试重新编码确保UTF-8
+                value.encode('utf-8').decode('utf-8')
+            except UnicodeError:
+                print(f"[ERROR] Unicode encoding error in original_text: {repr(value)}")
+        
+    def on_corrected_text(self, instance, value):
+        print(f"[DEBUG] ChatBubble corrected_text changed: {repr(value)}")
+        # 确保文本是UTF-8编码
+        if isinstance(value, str):
+            try:
+                value.encode('utf-8').decode('utf-8')
+            except UnicodeError:
+                print(f"[ERROR] Unicode encoding error in corrected_text: {repr(value)}")
+        
+    def on_translation(self, instance, value):
+        print(f"[DEBUG] ChatBubble translation changed: {repr(value)}")
+
+    def get_display_text(self):
+        """获取显示文本，处理编码问题"""
+        try:
+            if self.corrected_text and self.corrected_text != self.original_text:
+                display_text = self.corrected_text
+            else:
+                display_text = self.original_text
+            
+            # 确保文本是UTF-8编码
+            if isinstance(display_text, str):
+                # 重新编码确保UTF-8
+                display_text.encode('utf-8').decode('utf-8')
+                print(f"[DEBUG] get_display_text: {repr(display_text)}")
+                return display_text
+            else:
+                return str(display_text) if display_text else ""
+        except UnicodeError as e:
+            print(f"[ERROR] Unicode error in get_display_text: {e}")
+            return str(self.original_text) if self.original_text else ""
+
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
             parent = self.parent
@@ -617,10 +654,59 @@ class TranslateChatApp(MDApp):
     show_translation = BooleanProperty(True)
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # 字体已在模块级别注册，这里只需要设置属性
+        # 使用模块级别的字体名
         self.font_name = font_name
+        print(f"[DEBUG] TranslateChatApp font_name: {self.font_name}")
+        
+        # 测试字体渲染
+        self.test_font_rendering()
+        
+        # 从配置中加载翻译设置
+        self.load_translation_setting()
+    
+    def load_translation_setting(self):
+        """从配置中加载翻译设置"""
+        try:
+            # 优先从环境变量加载
+            translation_setting = os.environ.get('SHOW_TRANSLATION', 'True')
+            self.show_translation = translation_setting.lower() in ('true', '1', 'yes')
+            
+            # 如果环境变量没有设置，尝试从加密存储加载
+            if not os.environ.get('SHOW_TRANSLATION'):
+                from config_manager import config_manager
+                if config_manager.secure_storage:
+                    encrypted_config = config_manager.secure_storage.load_config()
+                    if encrypted_config and 'SHOW_TRANSLATION' in encrypted_config:
+                        self.show_translation = encrypted_config['SHOW_TRANSLATION']
+                        print(f"[配置] 从加密存储加载翻译设置: {self.show_translation}")
+            
+            print(f"[配置] 翻译设置已加载: {self.show_translation}")
+        except Exception as e:
+            print(f"[配置] 加载翻译设置失败: {e}")
+            # 使用默认值
+            self.show_translation = True
     def toggle_translation(self, value):
         self.show_translation = value
+    
+    def test_font_rendering(self):
+        """测试字体渲染效果"""
+        try:
+            from utils.font_utils import test_font_rendering, get_font_info
+            print("[字体] 开始字体渲染测试...")
+            
+            # 测试当前字体
+            if test_font_rendering(self.font_name):
+                print(f"[字体] 字体 {self.font_name} 渲染测试通过")
+            else:
+                print(f"[字体] 字体 {self.font_name} 渲染测试失败")
+            
+            # 获取字体信息
+            font_info = get_font_info()
+            print(f"[字体] 平台: {font_info['platform']}")
+            print(f"[字体] 已注册字体: {font_info['registered_fonts']}")
+            
+        except Exception as e:
+            print(f"[字体] 字体测试失败: {e}")
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Blue"

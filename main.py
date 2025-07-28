@@ -1,6 +1,6 @@
 # =============================================================
 # 文件名(File): main.py
-# 版本(Version): v0.1.4
+# 版本(Version): v2.0.1
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
 # 简介(Description): 程序主入口，统一使用 Kivy 版主界面，支持环境变量和加密存储配置
@@ -15,13 +15,10 @@ import logging
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 from config_manager import config_manager
-from utils.font_utils import register_system_font
 
 def main():
     """主程序入口"""
-    # 注册系统字体，供全局使用
-    font_name = register_system_font()
-    os.environ["TRANSLATE_CHAT_FONT_NAME"] = font_name
+    # 字体注册将在主界面模块中处理
     # 打印配置状态
     config_manager.print_config_status()
     

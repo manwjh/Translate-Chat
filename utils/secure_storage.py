@@ -89,8 +89,10 @@ class SecureStorage:
                 f.write(encrypted_data)
             
             # 只保留业务相关日志，不输出底层存储状态
+            return True
         except Exception as e:
             logger.error(f"[存储] 配置加密保存失败: {e}")
+            return False
     
     def load_config(self) -> dict:
         """加载加密配置"""
