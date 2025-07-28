@@ -198,7 +198,9 @@ generate_dockerfile() {
     
     # 检查网络连接，选择合适的基础镜像
     local base_image="ubuntu:22.04"
-    if ! check_network_connection; then
+    if check_network_connection; then
+        log_info "使用官方镜像源"
+    else
         log_info "使用阿里云镜像源"
         base_image="registry.cn-hangzhou.aliyuncs.com/library/ubuntu:22.04"
     fi
@@ -327,7 +329,7 @@ build_docker_image() {
     for attempt in 1 2 3; do
         log_info "第 $attempt 次尝试构建Docker镜像..."
         
-        if docker build --network=host --timeout=600 --progress=plain -f "$dockerfile_path" -t "$image_name" .; then
+        if docker build --network=host --progress=plain -f "$dockerfile_path" -t "$image_name" .; then
             log_success "Docker镜像构建成功: $image_name"
             return 0
         else
@@ -649,15 +651,21 @@ main() {
         exit 1
     fi
     
+    log_info "开始构建架构: $target_arch"
+    
     # 构建应用
+    log_info "进入构建分支..."
     case "$target_arch" in
         "x86_64")
+            log_info "构建x86_64架构..."
             build_architecture "x86_64"
             ;;
         "arm64")
+            log_info "构建arm64架构..."
             build_architecture "arm64"
             ;;
         "all")
+            log_info "构建所有架构..."
             build_architecture "x86_64"
             build_architecture "arm64"
             ;;
