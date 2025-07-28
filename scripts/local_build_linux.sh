@@ -235,6 +235,13 @@ setup_python_environment() {
         log_warning "未找到requirements-desktop.txt文件"
     fi
     
+    # 移除与PyInstaller不兼容的typing包
+    log_info "检查并移除与PyInstaller不兼容的包..."
+    if pip show typing &> /dev/null; then
+        log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y typing
+    fi
+    
     log_success "Python环境设置完成"
 }
 

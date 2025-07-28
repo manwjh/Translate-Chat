@@ -268,6 +268,9 @@ ENV PATH="/app/venv/bin:\$PATH"
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements-desktop.txt
 
+# 移除与PyInstaller不兼容的typing包
+RUN pip uninstall -y typing || true
+
 # 创建构建脚本
 RUN cat > /app/build_linux.sh << 'SCRIPT_EOF'
 #!/bin/bash

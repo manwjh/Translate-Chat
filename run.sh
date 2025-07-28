@@ -46,6 +46,13 @@ pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
 if [[ "$PLATFORM" == "Darwin" || "$PLATFORM" == "Linux" ]]; then
     echo "[INFO] 检测到桌面平台，安装桌面版依赖..."
     pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+    
+    # 移除与PyInstaller不兼容的typing包（如果存在）
+    if pip show typing &> /dev/null; then
+        echo "[WARNING] 检测到typing包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y typing
+    fi
+    
     python3 main.py
 else
     echo "[ERROR] 不支持的平台: $PLATFORM"

@@ -285,6 +285,15 @@ chmod +x run.sh
 chmod +x scripts/*.sh
 ```
 
+#### 5. PyInstaller兼容性问题
+```bash
+# 如果遇到typing包兼容性错误，运行修复脚本
+./scripts/fix_pyinstaller_compatibility.sh
+
+# 或者手动移除typing包
+pip uninstall -y typing
+```
+
 ---
 
 ## 技术支持 / Support

@@ -187,6 +187,14 @@ install_python_deps() {
     # 安装依赖
     if pip install -r requirements-desktop.txt; then
         log_success "Python依赖安装完成"
+        
+        # 移除与PyInstaller不兼容的typing包
+        log_info "检查并移除与PyInstaller不兼容的包..."
+        if pip show typing &> /dev/null; then
+            log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
+            pip uninstall -y typing
+        fi
+        
         return 0
     else
         log_error "Python依赖安装失败"
