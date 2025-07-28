@@ -167,6 +167,12 @@ build_application_local() {
     pip install -r "$PROJECT_ROOT/requirements-desktop.txt"
     pip install pyinstaller==5.13.2
     
+    # 移除与PyInstaller不兼容的typing包
+    if pip show typing &> /dev/null; then
+        log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y typing
+    fi
+    
     # 复制项目文件
     log_info "复制项目文件..."
     cp -r "$PROJECT_ROOT"/* .
@@ -194,6 +200,14 @@ build_application_local() {
         --hidden-import=hotwords \
         --hidden-import=audio_capture \
         --hidden-import=audio_capture_pyaudio \
+        --hidden-import=webrtcvad \
+        --hidden-import=resemblyzer \
+        --hidden-import=numpy \
+        --hidden-import=scipy \
+        --hidden-import=requests \
+        --hidden-import=urllib3 \
+        --hidden-import=utils.secure_storage \
+        --hidden-import=utils.file_downloader \
         main.py
     
     # 复制构建产物
@@ -228,7 +242,8 @@ create_macos_app() {
     # 复制可执行文件
     cp "$dist_dir/translate-chat" "$app_path/Contents/MacOS/"
     
-    # 创建Info.plist
+    # 创建Info.plist（确保先删除可能存在的目录）
+    rm -rf "$app_path/Contents/Info.plist"
     cat > "$app_path/Contents/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
