@@ -75,7 +75,7 @@ Translate-Chat/
   ├── lang_detect.py               # 语言检测
   ├── main.py                      # 程序主入口（KivyMD UI）
   ├── hotwords.py                  # 热词检测功能
-  ├── speaker_change_detector.py   # 说话人切换检测
+  ├── speaker_change_detector.py.disabled   # 说话人切换检测（已禁用）
   ├── requirements-desktop.txt     # 桌面依赖
   ├── run.sh                       # 桌面端启动脚本
   ├── translator.py                # 翻译逻辑
@@ -153,7 +153,7 @@ python3 main.py
 - **aiohttp**: 异步HTTP
 - **cryptography**: 加密存储
 - **numpy/scipy**: 音频处理
-- **webrtcvad/resemblyzer**: 语音识别
+- **webrtcvad**: 语音活动检测
 
 ### Linux 桌面应用打包环境
 - **macOS**: Docker Desktop, Python 3.9-3.11

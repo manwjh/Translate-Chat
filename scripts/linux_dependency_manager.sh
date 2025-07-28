@@ -107,7 +107,6 @@ PYTHON_DEPS=(
     "numpy-1.21.6-cp39-cp39-linux_x86_64.whl|https://files.pythonhosted.org/packages/py3/n/numpy/numpy-1.21.6-cp39-cp39-linux_x86_64.whl"
     "scipy-1.7.3-cp39-cp39-linux_x86_64.whl|https://files.pythonhosted.org/packages/py3/s/scipy/scipy-1.7.3-cp39-cp39-linux_x86_64.whl"
     "webrtcvad-2.0.10-py3-none-any.whl|https://files.pythonhosted.org/packages/py3/w/webrtcvad/webrtcvad-2.0.10-py3-none-any.whl"
-    "resemblyzer-0.1.1-py3-none-any.whl|https://files.pythonhosted.org/packages/py3/r/resemblyzer/resemblyzer-0.1.1-py3-none-any.whl"
 )
 
 for dep in "${PYTHON_DEPS[@]}"; do
@@ -251,7 +250,7 @@ cat > dependencies.txt << 'EOF'
 - libpulse0_15.99.1+dfsg1-1ubuntu2.1_amd64.deb
 - libjack-jackd2-0_1.9.20~dfsg-1_amd64.deb
 
-**注意**: 已移除FFmpeg相关依赖，因为resemblyzer通常不需要完整的FFmpeg库
+**注意**: 已移除FFmpeg相关依赖，因为音频处理通常不需要完整的FFmpeg库
 
 ## Python依赖包 (Python 3.9)
 - kivy-2.3.0-cp39-cp39-linux_x86_64.whl
@@ -264,7 +263,7 @@ cat > dependencies.txt << 'EOF'
 - numpy-1.21.6-cp39-cp39-linux_x86_64.whl
 - scipy-1.7.3-cp39-cp39-linux_x86_64.whl
 - webrtcvad-2.0.10-py3-none-any.whl
-- resemblyzer-0.1.1-py3-none-any.whl
+
 
 ## 打包工具
 - appimagetool-x86_64.AppImage

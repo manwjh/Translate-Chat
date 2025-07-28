@@ -19,8 +19,9 @@ import logging
 ASR_WS_URL = config_manager.get('ASR_WS_URL')
 ASR_SAMPLE_RATE = config_manager.get('ASR_SAMPLE_RATE')
 
-# 新增导入
-#from speaker_change_detector import SpeakerChangeDetector
+# 说话人检测功能已禁用（需要resemblyzer依赖）
+# 如需启用，请取消注释以下行并安装resemblyzer
+# from speaker_change_detector import SpeakerChangeDetector
 
 # 禁用日志配置，避免重复输出
 # logging.basicConfig(level=logging.INFO)
@@ -245,8 +246,9 @@ class VolcanoASRClientAsync:
         self.max_retries = 3
         self.retry_delay = 2
         self.connection_timeout = 30
-        # 新增：说话人变化检测器
-        #self.speaker_detector = SpeakerChangeDetector(sample_rate=ASR_SAMPLE_RATE)
+        # 说话人检测功能已禁用（需要resemblyzer依赖）
+        # 如需启用，请取消注释以下行并安装resemblyzer
+        # self.speaker_detector = SpeakerChangeDetector(sample_rate=ASR_SAMPLE_RATE)
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -319,18 +321,19 @@ class VolcanoASRClientAsync:
         """发送音频流，支持错误处理"""
         buf = b""
         count = 0
-        # 新增：用于说话人检测的缓冲
-        #detector = self.speaker_detector
+        # 说话人检测功能已禁用（需要resemblyzer依赖）
+        # 如需启用，请取消注释以下代码并安装resemblyzer
+        # detector = self.speaker_detector
         
         try:
             async for chunk, is_last in audio_generator:
                 buf += chunk
                 count += 1
-                # 说话人检测
-                #results = detector.feed_pcm(chunk)
-                #for speech_pcm, is_changed in results:
-                #    if is_changed:
-                #        print("[SpeakerChange] 检测到说话人变化！")
+                # 说话人检测功能已禁用
+                # results = detector.feed_pcm(chunk)
+                # for speech_pcm, is_changed in results:
+                #     if is_changed:
+                #         print("[SpeakerChange] 检测到说话人变化！")
                 # 调整为累积1个200ms块就发送，减少网络传输频率
                 if count == 1 or is_last:
                     try:
@@ -349,10 +352,10 @@ class VolcanoASRClientAsync:
             logger.error(f"音频流发送异常: {str(e)}")
             raise
             
-        # 处理最后剩余帧
-        #for speech_pcm, is_changed in detector.flush():
-        #    if is_changed:
-        #        print("[SpeakerChange] 检测到说话人变化！（结尾）")
+        # 说话人检测功能已禁用
+        # for speech_pcm, is_changed in detector.flush():
+        #     if is_changed:
+        #         print("[SpeakerChange] 检测到说话人变化！（结尾）")
 
     async def receive_results(self):
         """接收ASR结果，支持错误处理"""

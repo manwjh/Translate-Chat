@@ -29,7 +29,6 @@ a = Analysis(
         'asr_client', 
         'translator', 
         'config_manager', 
-        'speaker_change_detector', 
         'lang_detect', 
         'hotwords', 
         'audio_capture', 

@@ -285,7 +285,7 @@ build_application_local() {
         --hidden-import=asr_client \
         --hidden-import=translator \
         --hidden-import=config_manager \
-        --hidden-import=speaker_change_detector \
+
         --hidden-import=lang_detect \
         --hidden-import=hotwords \
         --hidden-import=audio_capture \
