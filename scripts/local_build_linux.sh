@@ -131,52 +131,91 @@ install_system_dependencies() {
 
 # 设置Python虚拟环境
 setup_python_environment() {
-    if [[ "$SKIP_DEPS" == true ]]; then
-        log_info "跳过Python环境设置"
-        return 0
-    fi
-    
-    # 检查Python环境
-    local python_cmd
-    python_cmd=$(check_python_environment)
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
-    
-    # 设置Python环境（调用通用工具函数）
+    local python_cmd="$1"
     local venv_path="$PROJECT_ROOT/venv"
     
     log_info "设置Python虚拟环境..."
     
+    # 清理可能存在的旧虚拟环境
+    if [[ -d "$venv_path" ]]; then
+        log_info "清理旧虚拟环境..."
+        rm -rf "$venv_path"
+    fi
+    
     # 创建虚拟环境
-    if [[ ! -d "$venv_path" ]]; then
-        $python_cmd -m venv "$venv_path"
+    log_info "创建新的虚拟环境..."
+    if ! $python_cmd -m venv "$venv_path"; then
+        log_error "虚拟环境创建失败"
+        return 1
     fi
     
     # 激活虚拟环境
+    log_info "激活虚拟环境..."
+    if [[ ! -f "$venv_path/bin/activate" ]]; then
+        log_error "虚拟环境激活脚本不存在: $venv_path/bin/activate"
+        return 1
+    fi
+    
+    # 使用source激活虚拟环境
     source "$venv_path/bin/activate"
     
-    # 升级pip
-    pip install --upgrade pip setuptools wheel
+    # 验证虚拟环境是否激活
+    if [[ "$VIRTUAL_ENV" != "$venv_path" ]]; then
+        log_error "虚拟环境激活失败"
+        return 1
+    fi
+    
+    log_info "虚拟环境已激活: $VIRTUAL_ENV"
+    
+    # 升级pip（使用--force-reinstall避免版本冲突）
+    log_info "升级pip和基础工具..."
+    pip install --force-reinstall --upgrade pip setuptools wheel
     
     # 配置pip使用国内镜像源
+    log_info "配置pip镜像源..."
     pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/
     pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
     
-    # 安装PyInstaller
-    pip install --no-cache-dir "pyinstaller==5.13.2"
+    # 移除与PyInstaller不兼容的包
+    log_info "检查并移除不兼容的包..."
     
-    # 安装项目依赖
-    if [[ -f "requirements-desktop.txt" ]]; then
-        pip install -r requirements-desktop.txt
-    else
-        log_warning "未找到requirements-desktop.txt文件"
+    # 检查是否在conda环境中
+    if [[ -n "$CONDA_DEFAULT_ENV" ]]; then
+        log_warning "检测到conda环境: $CONDA_DEFAULT_ENV"
+        log_info "建议使用conda remove命令移除不兼容的包..."
+        
+        # 尝试使用conda移除pathlib
+        if conda list pathlib &> /dev/null; then
+            log_warning "检测到conda安装的pathlib包，尝试移除..."
+            conda remove -y pathlib || log_warning "conda移除pathlib失败，尝试pip移除..."
+        fi
     fi
     
-    # 移除与PyInstaller不兼容的typing包
+    # 移除pathlib包（与PyInstaller不兼容）
+    if pip show pathlib &> /dev/null; then
+        log_warning "检测到pathlib包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y pathlib
+    fi
+    
+    # 移除typing包（与PyInstaller不兼容）
     if pip show typing &> /dev/null; then
         log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
         pip uninstall -y typing
+    fi
+    
+    # 安装PyInstaller
+    log_info "安装PyInstaller..."
+    if ! pip install --no-cache-dir "pyinstaller==5.13.2"; then
+        log_error "PyInstaller安装失败"
+        return 1
+    fi
+    
+    # 安装项目依赖
+    if [[ -f "requirements-desktop.txt" ]]; then
+        log_info "安装项目依赖..."
+        pip install -r requirements-desktop.txt
+    else
+        log_warning "未找到requirements-desktop.txt文件"
     fi
     
     log_success "Python环境设置完成"
@@ -204,9 +243,20 @@ build_application_local() {
     # 设置Python环境
     setup_python_environment "$python_cmd"
     
-    # 复制项目文件
+    # 复制项目文件（排除构建目录避免循环复制）
     log_info "复制项目文件..."
-    cp -r "$PROJECT_ROOT"/* .
+    if command -v rsync &> /dev/null; then
+        rsync -av --exclude='build' --exclude='dist' --exclude='venv' --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' "$PROJECT_ROOT/" .
+    else
+        # 回退到cp，手动排除构建目录
+        log_warning "rsync不可用，使用cp复制（可能较慢）..."
+        for item in "$PROJECT_ROOT"/*; do
+            local basename_item=$(basename "$item")
+            if [[ "$basename_item" != "build" && "$basename_item" != "dist" && "$basename_item" != "venv" && "$basename_item" != ".git" ]]; then
+                cp -r "$item" .
+            fi
+        done
+    fi
     
     # 构建PyInstaller命令
     local pyinstaller_cmd
