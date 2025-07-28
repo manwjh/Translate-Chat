@@ -18,16 +18,28 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 🎤 实时语音转文字（火山 ASR 流式识别）
 - 🌍 自动语种检测（中英互译）
 - 💬 识别结果与翻译对照气泡展示
+- ⚡ **并行异步处理**：ASR识别与翻译完全分离，翻译不阻塞实时识别
+- 🔄 异步翻译队列，支持并发翻译处理
+- 📥 **对话记录导出**：支持将所有对话记录下载为txt文件
 - ⏰ 超时自动固化分句提示
 - 🔄 一键重置、翻译显示开关
 - 📱 跨平台支持：桌面（PyAudio）、Android（Plyer）
 - 🔥 热词检测与说话人切换检测
 - 🔒 智能令牌管理（动态刷新、过期处理）
+- 🛡️ 增强网络错误处理和重试机制
 - 📦 自动化打包脚本（Ubuntu/macOS）
 
 ---
 
 ## 更新日志 / Changelog
+
+### v0.1.2 (2025/7/25)
+- 🚀 **重大优化**: 重构为并行异步架构，ASR识别与翻译完全分离
+- ⚡ **性能提升**: 翻译不再阻塞ASR实时识别，大幅提升响应速度
+- 🔄 **异步队列**: 使用异步队列处理翻译任务，支持并发翻译
+- 📥 **新增下载功能**: 支持将所有对话记录导出为txt文件
+- 🛡️ **错误处理**: 增强网络超时和重试机制，提高稳定性
+- 📝 **代码优化**: 重构翻译和ASR客户端，提升代码质量
 
 ### v0.1.1 (2025/7/25)
 - ✨ 新增 Ubuntu 和 macOS 自动化打包脚本
@@ -90,6 +102,9 @@ Translate-Chat/
 ---
 
 ## 快速开始 / Quick Start
+
+### 🚀 macOS 用户（推荐）
+- **[macOS 快速开始指南](docs/macos_quick_start.md)** - 一键运行，自动安装依赖
 
 ### 1. 环境准备
 ```bash
@@ -161,12 +176,26 @@ chmod +x scripts/build_android_macos.sh
 bash scripts/build_android_macos.sh
 ```
 
+### Linux 桌面应用打包
+
+#### macOS 环境（交叉编译）
+```bash
+# 1. 下载Linux依赖包（可选，用于加速构建）
+chmod +x scripts/linux_dependency_manager.sh
+bash scripts/linux_dependency_manager.sh
+
+# 2. 构建Linux桌面应用
+chmod +x scripts/build_linux_desktop.sh
+bash scripts/build_linux_desktop.sh
+```
+
 ### 打包脚本特点
 - 🚀 **自动化配置**：自动安装依赖、配置环境
 - 🇨🇳 **国内镜像**：使用清华源加速下载
-- 📱 **跨平台支持**：Ubuntu 和 macOS 双平台
+- 📱 **跨平台支持**：Ubuntu、macOS 和 Linux 三平台
 - 📚 **详细文档**：完整的使用说明和故障排除
 - 📦 **SDL2本地管理**：智能检查并下载SDL2依赖文件
+- 🐳 **Docker交叉编译**：支持macOS交叉编译Linux应用
 
 ### SDL2 本地文件管理
 
@@ -185,6 +214,10 @@ bash scripts/sdl2_local_manager.sh
 
 详细说明请参考：[scripts/README.md](scripts/README.md)
 
+### Linux 桌面应用打包
+
+详细说明请参考：[Linux桌面应用打包指南](docs/linux_desktop_build.md)
+
 ---
 
 ## 依赖安装 / Dependencies
@@ -202,6 +235,12 @@ bash scripts/sdl2_local_manager.sh
 - **macOS**: OpenJDK 17, Python 3.7-3.10
 - **内存**: 建议4GB以上
 - **磁盘**: 建议10GB以上可用空间
+
+### Linux 桌面应用打包环境
+- **macOS**: Docker Desktop, Python 3.9-3.11
+- **内存**: 建议8GB以上
+- **磁盘**: 建议15GB以上可用空间
+- **网络**: 需要稳定的网络连接下载Docker镜像
 
 ---
 

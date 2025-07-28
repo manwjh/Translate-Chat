@@ -40,6 +40,12 @@ from ui.sys_config_window import APIConfigScreen
 
 import re
 import traceback
+import os
+import datetime
+from kivy.utils import platform
+from kivymd.uix.dialog import MDDialog
+from kivymd.uix.button import MDFlatButton
+from kivymd.uix.list import OneLineListItem
 
 def clean_text(text):
     if not isinstance(text, str):
@@ -57,6 +63,7 @@ from lang_detect import LangDetect
 from translator import Translator
 # 新增导入
 from hotwords import get_hotwords, add_hotword
+from utils.file_downloader import FileDownloader
 
 KV = '''
 <MDLabel>:
@@ -200,6 +207,9 @@ KV = '''
         MDRaisedButton:
             text: 'Reset'
             on_release: root.on_reset()
+        MDRaisedButton:
+            text: 'DNLD'
+            on_release: root.on_download()
         Widget:
         MDBoxLayout:
             orientation: 'horizontal'
@@ -262,6 +272,7 @@ class MainWidget(MDBoxLayout):
         self.audio = None
         self.lang_detect = LangDetect()
         self.translator = Translator()
+        self.file_downloader = FileDownloader()
         self.loop = None
         self.interim_bubble = None  # 只保留一个interim气泡
         self._asr_call_count = 0  # 调用计数
@@ -312,6 +323,32 @@ class MainWidget(MDBoxLayout):
 
     def on_translate_checkbox_changed(self, active):
         pass  # 已废弃，统一用app.show_translation
+        
+    def on_download(self):
+        """下载所有记录到txt文件"""
+        if not self.final_bubbles:
+            self.show_dialog("Notice", "No records to download")
+            return
+            
+        # 使用文件下载器保存记录
+        self.file_downloader.save_chat_records(
+            self.final_bubbles, 
+            callback=self.show_dialog
+        )
+    
+    def show_dialog(self, title, text):
+        """显示对话框"""
+        dialog = MDDialog(
+            title=title,
+            text=text,
+            buttons=[
+                MDFlatButton(
+                    text="确定",
+                    on_release=lambda x: dialog.dismiss()
+                )
+            ]
+        )
+        dialog.open()
 
     @mainthread
     def set_asr_running(self, value):
@@ -331,6 +368,14 @@ class MainWidget(MDBoxLayout):
         last_emit_time = None
         no_update_count = 0
         audio = self.audio
+        
+        # 创建翻译任务队列和后台任务
+        translation_queue = asyncio.Queue()
+        translation_tasks = set()
+        
+        # 启动翻译后台任务
+        translation_task = asyncio.create_task(self._translation_worker(translation_queue))
+        
         async def on_result(response):
             nonlocal last_text, last_emit_time, no_update_count
             if not self.asr_running:
@@ -343,46 +388,48 @@ class MainWidget(MDBoxLayout):
                 updated = False
                 current_text = None
                 new_definite_utterances = []
+                
                 for utt in asr_utterances:
                     if utt.get('definite') and not utt.get('translation'):
+                        # 立即显示ASR结果，翻译异步处理
+                        utt['translation'] = None
+                        utt['corrected'] = None
+                        
+                        # 将翻译任务加入队列，异步处理
                         if self.get_app_show_translation():
-                            src_lang = self.lang_detect.detect(utt['text'])
-                            tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
-                            translation_result = await self.translator.translate(utt['text'], src_lang=src_lang, tgt_lang=tgt_lang)
-                            # 从翻译结果字典中提取翻译文本
-                            if isinstance(translation_result, dict):
-                                utt['translation'] = translation_result.get('translation', '')
-                                utt['corrected'] = translation_result.get('corrected', '')
-                            else:
-                                utt['translation'] = translation_result or ''
-                                utt['corrected'] = ''
-                        else:
-                            utt['translation'] = None
+                            translation_item = {
+                                'utterance_id': id(utt),
+                                'text': utt['text'],
+                                'utterance': utt
+                            }
+                            await translation_queue.put(translation_item)
+                        
                         updated = True
                     if utt.get('text'):
                         current_text = utt['text']
                     if utt.get('definite') and utt.get('text'):
                         new_definite_utterances.append(utt)
+                        
                 if current_text and current_text != getattr(self, 'last_shown_definite_text', None):
                     self.last_shown_definite_text = current_text
                     no_update_count = 0
                     last_emit_time = now
                 else:
                     no_update_count += 1
+                    
                 if no_update_count >= N and last_text:
                     timeout_finalize = True
                     utterance = {'text': last_text, 'definite': True, 'translation': None, 'timeout_finalize': True}
+                    
+                    # 超时固化时也异步翻译
                     if self.get_app_show_translation():
-                        src_lang = self.lang_detect.detect(last_text)
-                        tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
-                        translation_result = await self.translator.translate(last_text, src_lang=src_lang, tgt_lang=tgt_lang)
-                        # 从翻译结果字典中提取翻译文本
-                        if isinstance(translation_result, dict):
-                            utterance['translation'] = translation_result.get('translation', '')
-                            utterance['corrected'] = translation_result.get('corrected', '')
-                        else:
-                            utterance['translation'] = translation_result or ''
-                            utterance['corrected'] = ''
+                        translation_item = {
+                            'utterance_id': id(utterance),
+                            'text': last_text,
+                            'utterance': utterance
+                        }
+                        await translation_queue.put(translation_item)
+                        
                     self._show_asr_utterances([utterance])
                     no_update_count = 0
                     last_emit_time = now
@@ -392,13 +439,72 @@ class MainWidget(MDBoxLayout):
                             utt['timeout_finalize'] = False
                     self._show_asr_utterances(asr_utterances)
                     last_emit_time = now
+                    
         async with VolcanoASRClientAsync(on_result=on_result) as asr:
             try:
                 await asr.run(audio.audio_stream_generator())
             except Exception as e:
                 print(f"[ASR] 错误: {e}")
+                
+        # 等待翻译任务完成
+        await translation_queue.put(None)  # 发送结束信号
+        await translation_task
+        
         self.set_asr_running(False)
         self.mic_btn_text = 'Mic ON'
+
+    async def _translation_worker(self, queue):
+        """翻译后台工作线程"""
+        while True:
+            try:
+                item = await queue.get()
+                if item is None:  # 结束信号
+                    break
+                    
+                utterance_id = item['utterance_id']
+                text = item['text']
+                utterance = item['utterance']
+                
+                # 执行翻译
+                try:
+                    src_lang = self.lang_detect.detect(text)
+                    tgt_lang = 'en' if src_lang.startswith('zh') else 'zh'
+                    translation_result = await self.translator.translate(text, src_lang=src_lang, tgt_lang=tgt_lang)
+                    
+                    # 更新utterance的翻译结果
+                    if isinstance(translation_result, dict):
+                        utterance['translation'] = translation_result.get('translation', '')
+                        utterance['corrected'] = translation_result.get('corrected', '')
+                    else:
+                        utterance['translation'] = translation_result or ''
+                        utterance['corrected'] = ''
+                        
+                    # 在主线程中更新UI
+                    self._update_utterance_translation(utterance)
+                    
+                except Exception as e:
+                    print(f"[翻译] 翻译失败: {e}")
+                    utterance['translation'] = '[翻译失败]'
+                    utterance['corrected'] = text
+                    self._update_utterance_translation(utterance)
+                    
+            except Exception as e:
+                print(f"[翻译工作线程] 异常: {e}")
+                continue
+
+    @mainthread
+    def _update_utterance_translation(self, utterance):
+        """在主线程中更新utterance的翻译结果"""
+        try:
+            # 查找对应的气泡并更新翻译
+            chat_area = self.ids.chat_area
+            for child in chat_area.children:
+                if hasattr(child, 'utterance_id') and child.utterance_id == id(utterance):
+                    child.translation = utterance.get('translation', '')
+                    child.corrected_text = utterance.get('corrected', '')
+                    break
+        except Exception as e:
+            print(f"[UI更新] 更新翻译失败: {e}")
 
     def get_app_show_translation(self):
         # 兼容在主线程和子线程下获取app实例
@@ -424,7 +530,8 @@ class MainWidget(MDBoxLayout):
             end_time = utt.get('end_time')
             key = (original_text, start_time, end_time)
             if definite and original_text and key not in self.final_utterance_keys:
-                bubble = self.create_bubble(original_text, corrected_text, translation, timeout_tip)
+                utterance_id = id(utt)  # 使用utterance的id作为标识
+                bubble = self.create_bubble(original_text, corrected_text, translation, timeout_tip, utterance_id)
                 self.final_bubbles.append(bubble)
                 self.final_utterance_keys.add(key)
         # 2. 清空并重绘所有固化分句
@@ -444,13 +551,16 @@ class MainWidget(MDBoxLayout):
             self.scroll_to_bottom()
         # print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
 
-    def create_bubble(self, original_text, corrected_text, translation, timeout_tip):
-        return ChatBubble(
+    def create_bubble(self, original_text, corrected_text, translation, timeout_tip, utterance_id=None):
+        bubble = ChatBubble(
             original_text=clean_text(original_text), 
             corrected_text=clean_text(corrected_text) if corrected_text else '',
             translation=translation or '', 
             timeout_tip=timeout_tip or ''
         )
+        if utterance_id:
+            bubble.utterance_id = utterance_id
+        return bubble
 
     @mainthread
     def scroll_to_bottom(self):

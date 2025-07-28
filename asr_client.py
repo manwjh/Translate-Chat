@@ -241,6 +241,10 @@ class VolcanoASRClientAsync:
         self.session = None
         self.conn = None
         self.running = False
+        # 新增：重试和超时配置
+        self.max_retries = 3
+        self.retry_delay = 2
+        self.connection_timeout = 30
         # 新增：说话人变化检测器
         #self.speaker_detector = SpeakerChangeDetector(sample_rate=ASR_SAMPLE_RATE)
 
@@ -255,73 +259,152 @@ class VolcanoASRClientAsync:
             await self.session.close()
 
     async def connect(self):
-        headers = RequestBuilder.new_auth_headers()
-        self.conn = await self.session.ws_connect(ASR_WS_URL, headers=headers)
-        self.running = True
-        # logger.info(f"Connected to {ASR_WS_URL}")
+        """连接ASR服务，支持重试机制"""
+        for attempt in range(self.max_retries):
+            try:
+                headers = RequestBuilder.new_auth_headers()
+                timeout = aiohttp.ClientTimeout(total=self.connection_timeout)
+                
+                # 创建带超时的会话
+                if self.session and not self.session.closed:
+                    await self.session.close()
+                self.session = aiohttp.ClientSession(timeout=timeout)
+                
+                self.conn = await self.session.ws_connect(ASR_WS_URL, headers=headers)
+                self.running = True
+                logger.info(f"成功连接到ASR服务: {ASR_WS_URL}")
+                return
+                
+            except asyncio.TimeoutError as e:
+                logger.warning(f"ASR连接超时 (第{attempt + 1}次尝试): {str(e)}")
+                if attempt < self.max_retries - 1:
+                    logger.info(f"等待{self.retry_delay}秒后重试连接...")
+                    await asyncio.sleep(self.retry_delay)
+                    continue
+                else:
+                    logger.error("ASR连接最终超时，所有重试失败")
+                    raise
+                    
+            except aiohttp.ClientError as e:
+                logger.warning(f"ASR网络连接错误 (第{attempt + 1}次尝试): {str(e)}")
+                if attempt < self.max_retries - 1:
+                    logger.info(f"等待{self.retry_delay}秒后重试连接...")
+                    await asyncio.sleep(self.retry_delay)
+                    continue
+                else:
+                    logger.error("ASR网络连接最终失败，所有重试失败")
+                    raise
+                    
+            except Exception as e:
+                logger.exception(f"ASR连接异常 (第{attempt + 1}次尝试): {str(e)}")
+                if attempt < self.max_retries - 1:
+                    logger.info(f"等待{self.retry_delay}秒后重试连接...")
+                    await asyncio.sleep(self.retry_delay)
+                    continue
+                else:
+                    raise
 
     async def send_full_client_request(self):
-        request = RequestBuilder.new_full_client_request(self.seq)
-        await self.conn.send_bytes(request)
-        # logger.info(f"Sent full client request with seq: {self.seq}")
-        self.seq += 1
+        """发送完整客户端请求"""
+        try:
+            request = RequestBuilder.new_full_client_request(self.seq)
+            await self.conn.send_bytes(request)
+            logger.debug(f"发送完整客户端请求，序列号: {self.seq}")
+            self.seq += 1
+        except Exception as e:
+            logger.error(f"发送客户端请求失败: {str(e)}")
+            raise
 
     async def send_audio_stream(self, audio_generator):
+        """发送音频流，支持错误处理"""
         buf = b""
         count = 0
         # 新增：用于说话人检测的缓冲
         #detector = self.speaker_detector
-        async for chunk, is_last in audio_generator:
-            buf += chunk
-            count += 1
-            # 说话人检测
-            #results = detector.feed_pcm(chunk)
-            #for speech_pcm, is_changed in results:
-            #    if is_changed:
-            #        print("[SpeakerChange] 检测到说话人变化！")
-            # 调整为累积1个200ms块就发送，减少网络传输频率
-            if count == 1 or is_last:
-                request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
-                await self.conn.send_bytes(request)
-                # logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
-                if not is_last:
-                    self.seq += 1
-                buf = b""
-                count = 0
+        
+        try:
+            async for chunk, is_last in audio_generator:
+                buf += chunk
+                count += 1
+                # 说话人检测
+                #results = detector.feed_pcm(chunk)
+                #for speech_pcm, is_changed in results:
+                #    if is_changed:
+                #        print("[SpeakerChange] 检测到说话人变化！")
+                # 调整为累积1个200ms块就发送，减少网络传输频率
+                if count == 1 or is_last:
+                    try:
+                        request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
+                        await self.conn.send_bytes(request)
+                        logger.debug(f"发送音频块 seq={self.seq} size={len(request)} bytes last={is_last}")
+                        if not is_last:
+                            self.seq += 1
+                        buf = b""
+                        count = 0
+                    except Exception as e:
+                        logger.error(f"发送音频块失败: {str(e)}")
+                        raise
+                        
+        except Exception as e:
+            logger.error(f"音频流发送异常: {str(e)}")
+            raise
+            
         # 处理最后剩余帧
         #for speech_pcm, is_changed in detector.flush():
         #    if is_changed:
         #        print("[SpeakerChange] 检测到说话人变化！（结尾）")
 
     async def receive_results(self):
-        async for msg in self.conn:
-            if msg.type == aiohttp.WSMsgType.BINARY:
-                response = ResponseParser.parse_response(msg.data)
-                if response.payload_msg:
-                    result = response.payload_msg.get('result', {})
-                    text = result.get('text', '')
-                if response.code != 0:
-                    reason = get_asr_error_reason(response.code)
-                    logger.error(f"ASR错误码: {response.code}, 原因: {reason}")
-                if self.on_result:
-                    ret = self.on_result(response)
-                    if asyncio.iscoroutine(ret):
-                        await ret
-                if response.is_last_package or response.code != 0:
+        """接收ASR结果，支持错误处理"""
+        try:
+            async for msg in self.conn:
+                if msg.type == aiohttp.WSMsgType.BINARY:
+                    try:
+                        response = ResponseParser.parse_response(msg.data)
+                        if response.payload_msg:
+                            result = response.payload_msg.get('result', {})
+                            text = result.get('text', '')
+                        if response.code != 0:
+                            reason = get_asr_error_reason(response.code)
+                            logger.error(f"ASR错误码: {response.code}, 原因: {reason}")
+                        if self.on_result:
+                            ret = self.on_result(response)
+                            if asyncio.iscoroutine(ret):
+                                await ret
+                        if response.is_last_package or response.code != 0:
+                            break
+                    except Exception as e:
+                        logger.error(f"解析ASR响应失败: {str(e)}")
+                        continue
+                        
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    logger.error(f"WebSocket错误: {msg.data}")
                     break
-            elif msg.type == aiohttp.WSMsgType.ERROR:
-                logger.error(f"WebSocket error: {msg.data}")
-                break
-            elif msg.type == aiohttp.WSMsgType.CLOSED:
-                break
+                elif msg.type == aiohttp.WSMsgType.CLOSED:
+                    logger.info("WebSocket连接已关闭")
+                    break
+                elif msg.type == aiohttp.WSMsgType.CLOSE:
+                    logger.info("收到WebSocket关闭消息")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"接收ASR结果异常: {str(e)}")
+            raise
 
     async def run(self, audio_generator):
-        await self.connect()
-        await self.send_full_client_request()
-        send_task = asyncio.create_task(self.send_audio_stream(audio_generator))
-        await self.receive_results()
-        send_task.cancel()
+        """运行ASR客户端，支持错误处理和重试"""
         try:
-            await send_task
-        except asyncio.CancelledError:
-            pass 
+            await self.connect()
+            await self.send_full_client_request()
+            send_task = asyncio.create_task(self.send_audio_stream(audio_generator))
+            await self.receive_results()
+            send_task.cancel()
+            try:
+                await send_task
+            except asyncio.CancelledError:
+                pass
+        except Exception as e:
+            logger.error(f"ASR客户端运行异常: {str(e)}")
+            raise
+        finally:
+            self.running = False 

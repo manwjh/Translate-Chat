@@ -10,6 +10,9 @@
 scripts/
 ├── build_android_macos.sh      # macOS Android构建脚本
 ├── build_android_ubuntu.sh     # Ubuntu Android构建脚本
+├── build_linux_desktop.sh      # macOS交叉编译Linux桌面应用脚本
+├── linux_dependency_manager.sh # Linux桌面应用依赖管理脚本
+├── test_linux_build.sh         # Linux打包环境测试脚本
 ├── common_build_utils.sh       # 通用构建工具函数
 ├── pyjnius_patch.sh           # pyjnius兼容性补丁脚本
 ├── buildozer.spec             # Buildozer配置文件
@@ -18,30 +21,41 @@ scripts/
 
 ## 环境要求
 
-### 统一环境配置
+### Android APK 打包环境
+
+#### 统一环境配置
 - **Python**: 3.9-3.11 (推荐3.10) - **脚本会自动安装**
 - **Java**: JDK 11+ (推荐JDK 17) - **脚本会自动安装**
 - **Buildozer**: 1.5.0
 - **Cython**: 0.29.36
 - **pyjnius**: >=1.5.0
 
-### 系统特定要求
+#### 系统特定要求
 
-#### macOS
+##### macOS
 - Homebrew
 - Python 3.10: **脚本自动安装**
 - JDK 17: **脚本自动安装**
 - openssl@1.1: **脚本自动安装**
 
-#### Ubuntu
+##### Ubuntu
 - Python 3.10+: **脚本自动安装**
 - JDK 17: **脚本自动安装**
 - 系统依赖包: **脚本自动安装**
+
+### Linux 桌面应用打包环境
+
+#### macOS 交叉编译环境
+- **Python**: 3.9-3.11 (推荐3.10) - **脚本会自动安装**
+- **Docker**: Docker Desktop - **需要手动安装**
+- **PyInstaller**: 5.13.2 - **脚本会自动安装**
+- **AppImage工具**: **脚本会自动下载**
 
 ### 自动化特性
 
 脚本具备以下自动化功能：
 
+#### Android APK 打包
 1. **自动检测系统环境**
 2. **自动安装合适的Python版本** (3.9-3.11)
 3. **自动安装Java环境** (JDK 11+)
@@ -50,20 +64,44 @@ scripts/
 6. **自动创建虚拟环境**
 7. **自动处理pyjnius兼容性问题**
 
+#### Linux 桌面应用打包
+1. **自动检测Docker环境**
+2. **自动创建Linux交叉编译环境**
+3. **自动下载和安装打包工具**
+4. **自动构建Docker镜像**
+5. **自动生成AppImage和deb包**
+6. **自动清理构建文件**
+
 ## 使用方法
 
 ### 1. 快速开始
 
-#### macOS用户
+#### Android APK 打包
+
+##### macOS用户
 ```bash
 # 在项目根目录运行
 ./scripts/build_android_macos.sh
 ```
 
-#### Ubuntu用户
+##### Ubuntu用户
 ```bash
 # 在项目根目录运行
 ./scripts/build_android_ubuntu.sh
+```
+
+#### Linux 桌面应用打包
+
+##### macOS用户（交叉编译）
+```bash
+# 1. 测试Linux打包环境（推荐）
+./scripts/test_linux_build.sh
+
+# 2. 下载Linux依赖包（可选，用于加速构建）
+./scripts/linux_dependency_manager.sh
+
+# 3. 构建Linux桌面应用
+./scripts/build_linux_desktop.sh
 ```
 
 ### 2. 手动步骤 (可选)
@@ -213,6 +251,8 @@ cd /path/to/Translate-Chat
 
 ## 构建输出
 
+### Android APK 构建输出
+
 成功构建后，APK文件将生成在 `bin/` 目录：
 
 ```
@@ -221,7 +261,20 @@ bin/
 └── translatechat-1.0.0-arm64-v8a_armeabi-v7a-debug.aab
 ```
 
-## 部署到设备
+### Linux 桌面应用构建输出
+
+成功构建后，Linux应用文件将生成在 `dist/` 目录：
+
+```
+dist/
+├── translate-chat                    # Linux可执行文件
+├── Translate-Chat-x86_64.AppImage   # AppImage包
+└── translate-chat_1.0.0_amd64.deb   # deb安装包
+```
+
+## 部署说明
+
+### Android APK 部署
 
 ```bash
 # 连接Android设备并开启USB调试
@@ -230,6 +283,31 @@ buildozer android deploy run
 
 # 查看日志
 buildozer android logcat
+```
+
+### Linux 桌面应用部署
+
+#### 可执行文件部署
+```bash
+# 将可执行文件复制到Linux系统
+cp dist/translate-chat /usr/local/bin/
+chmod +x /usr/local/bin/translate-chat
+translate-chat
+```
+
+#### AppImage部署
+```bash
+# 将AppImage复制到Linux系统
+cp dist/Translate-Chat-x86_64.AppImage ~/Desktop/
+chmod +x ~/Desktop/Translate-Chat-x86_64.AppImage
+./Translate-Chat-x86_64.AppImage
+```
+
+#### deb包部署
+```bash
+# 在Ubuntu/Debian系统上安装
+sudo dpkg -i dist/translate-chat_1.0.0_amd64.deb
+sudo apt-get install -f  # 修复依赖关系
 ```
 
 ## 技术支持
@@ -242,6 +320,13 @@ buildozer android logcat
 4. 清理构建缓存后重试
 
 ## 更新日志
+
+### v2.1.0 (2025/7/25)
+- 新增Linux桌面应用打包功能
+- 支持macOS交叉编译Linux应用
+- 自动生成AppImage和deb包
+- 添加Linux依赖管理脚本
+- 完善Docker交叉编译环境
 
 ### v2.0.0 (2025/7/25)
 - 统一macOS和Ubuntu环境配置
