@@ -198,12 +198,9 @@ generate_dockerfile() {
     
     # 检查网络连接，选择合适的基础镜像
     local base_image="ubuntu:22.04"
-    if check_network_connection; then
-        log_info "使用官方镜像源"
-    else
-        log_info "使用阿里云镜像源"
-        base_image="registry.cn-hangzhou.aliyuncs.com/library/ubuntu:22.04"
-    fi
+    # 直接使用官方镜像源，通过重试机制处理网络问题
+    log_info "使用官方镜像源"
+    base_image="ubuntu:22.04"
     
     cat > "$dockerfile_path" << EOF
 FROM --platform=$docker_platform $base_image
@@ -632,8 +629,8 @@ main() {
         exit 1
     fi
     
-    # 检查网络连接
-    check_network_connection
+    # 检查网络连接（不退出脚本）
+    check_network_connection || true
     
     # 仅测试环境
     if [[ "$TEST_ONLY" == true ]]; then
