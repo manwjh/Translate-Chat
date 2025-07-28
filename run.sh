@@ -2,10 +2,10 @@
 
 # =============================================================
 # 文件名(File): run.sh
-# 版本(Version): v0.6
+# 版本(Version): v2.0.0
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
-# 简介(Description): 跨平台自动化启动脚本，自动安装依赖，支持 KivyMD
+# 简介(Description): 桌面端自动化启动脚本，移除Android支持，专注桌面平台
 # =============================================================
 
 set -e
@@ -44,12 +44,11 @@ pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 5. 自动安装 Python 依赖
 if [[ "$PLATFORM" == "Darwin" || "$PLATFORM" == "Linux" ]]; then
+    echo "[INFO] 检测到桌面平台，安装桌面版依赖..."
     pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
     python3 main.py
-elif [[ "$PLATFORM" == "Android" ]]; then
-    pip install -r requirements-android.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-    python3 main.py
 else
-    echo "Unsupported platform: $PLATFORM"
+    echo "[ERROR] 不支持的平台: $PLATFORM"
+    echo "[INFO] 当前仅支持 macOS 和 Linux 桌面平台"
     exit 1
 fi 

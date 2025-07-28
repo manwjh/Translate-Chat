@@ -64,8 +64,6 @@ def get_platform():
         return "linux"
     elif platform.system() == "Windows":
         return "windows"
-    elif "android" in platform.system().lower():
-        return "android"
     else:
         return "unknown"
 

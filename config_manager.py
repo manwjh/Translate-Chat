@@ -1,9 +1,9 @@
 # =============================================================
 # 文件名(File): config_manager.py
-# 版本(Version): v1.1.0
+# 版本(Version): v2.0.0
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
-# 简介(Description): 配置管理模块，支持环境变量、加密存储和默认配置三种方式，跨平台兼容
+# 简介(Description): 配置管理模块，移除Android支持，专注桌面平台
 # =============================================================
 
 import os
@@ -34,8 +34,6 @@ class ConfigManager:
             return 'macos'
         elif sys.platform.startswith('linux'):
             return 'linux'
-        elif 'android' in sys.platform.lower():
-            return 'android'
         else:
             return 'unknown'
     

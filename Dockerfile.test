@@ -1,0 +1,30 @@
+FROM ubuntu:22.04
+
+# 安装Python
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制项目文件
+COPY . /app/
+
+# 安装依赖
+RUN pip3 install --no-cache-dir pyinstaller==5.13.2
+
+# 创建简单的构建脚本
+RUN cat > /app/build_test.sh << 'SCRIPT_EOF'
+#!/bin/bash
+echo "开始构建测试..."
+pyinstaller --onefile --name="test-app" main.py
+echo "构建完成！"
+ls -la dist/
+SCRIPT_EOF
+
+RUN chmod +x /app/build_test.sh
+
+# 设置入口点
+ENTRYPOINT ["/app/build_test.sh"]

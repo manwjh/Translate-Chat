@@ -1,9 +1,9 @@
 # =============================================================
 # 文件名(File): main_window_kivy.py
-# 版本(Version): v2.0
+# 版本(Version): v2.0.0
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
-# 简介(Description): KivyMD 版主界面，全面美化优化，KivyMD带来无尽的烦恼，兼容性依然是一个很大问题。
+# 简介(Description): KivyMD 版主界面，移除Android支持，专注桌面端体验
 # =============================================================
 
 # 字体路径（已下载到 assets/fonts/NotoSansSC-VariableFont_wght.ttf）
@@ -12,7 +12,7 @@ from kivy.core.text import LabelBase
 FONT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts/NotoSansSC-VariableFont_wght.ttf'))
 LabelBase.register(name="NotoSansSC", fn_regular=FONT_PATH)
 
-
+# 设置桌面端窗口大小
 os.environ["KIVY_LOG_LEVEL"] = "error"
 
 from kivy.lang import Builder

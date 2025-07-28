@@ -1,17 +1,10 @@
 # =============================================================
 # 文件名(File): audio_capture.py
-# 版本(Version): v0.1.1
+# 版本(Version): v2.0.0
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/7/25
-# 简介(Description): 跨平台音频采集模块，桌面用PyAudio，Android用Plyer
+# 简介(Description): 桌面端音频采集模块，移除Android支持，专注桌面平台
 # =============================================================
 
-try:
-    from kivy.utils import platform as kivy_platform
-except ImportError:
-    kivy_platform = None
-
-if kivy_platform == "android":
-    from audio_capture_plyer import AudioStream
-else:
-    from audio_capture_pyaudio import AudioStream 
+# 直接使用桌面端PyAudio实现
+from audio_capture_pyaudio import AudioStream 

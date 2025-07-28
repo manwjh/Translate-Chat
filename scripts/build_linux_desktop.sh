@@ -1,16 +1,16 @@
 #!/bin/bash
 # Translate Chat - Linux 桌面应用打包自动化脚本
 # 文件名(File): build_linux_desktop.sh
-# 版本(Version): v1.0.0
+# 版本(Version): v2.0.0
 # 创建日期(Created): 2025/7/25
-# 简介(Description): 在macOS上交叉编译Linux桌面应用，支持AppImage和deb包格式
+# 简介(Description): 在macOS上交叉编译Linux桌面应用，支持x86_64和ARM64架构
 
 set -e
 
 # 引入通用打包工具函数
 source ./scripts/common_build_utils.sh
 
-echo "==== Translate Chat - Linux 桌面应用打包脚本 v1.0.0 ===="
+echo "==== Translate Chat - Linux 桌面应用打包脚本 v2.0.0 ===="
 echo "开始时间: $(date)"
 echo ""
 
@@ -33,12 +33,54 @@ fi
 log_success "确认在项目根目录运行"
 echo ""
 
+# 架构检测和配置
+echo "==== 0. 架构检测和配置 ===="
+log_info "检测目标架构..."
+
+# 检测当前系统架构
+CURRENT_ARCH=$(uname -m)
+log_info "当前系统架构: $CURRENT_ARCH"
+
+# 设置目标架构（可以通过参数指定）
+TARGET_ARCH=${1:-"x86_64"}  # 默认构建x86_64版本
+
+# 验证目标架构
+if [[ "$TARGET_ARCH" != "x86_64" && "$TARGET_ARCH" != "arm64" && "$TARGET_ARCH" != "aarch64" ]]; then
+    log_error "不支持的目标架构: $TARGET_ARCH"
+    log_error "支持的架构: x86_64, arm64, aarch64"
+    exit 1
+fi
+
+# 统一ARM架构名称
+if [[ "$TARGET_ARCH" == "aarch64" ]]; then
+    TARGET_ARCH="arm64"
+fi
+
+# 设置架构相关变量
+if [[ "$TARGET_ARCH" == "arm64" ]]; then
+    DEB_ARCH="arm64"
+    APPIMAGE_ARCH="aarch64"
+    DOCKER_PLATFORM="linux/arm64"
+else
+    DEB_ARCH="amd64"
+    APPIMAGE_ARCH="x86_64"
+    DOCKER_PLATFORM="linux/amd64"
+fi
+
+log_success "目标架构: $TARGET_ARCH"
+log_info "配置信息:"
+log_info "  - DEB架构: $DEB_ARCH"
+log_info "  - AppImage架构: $APPIMAGE_ARCH"
+log_info "  - Docker平台: $DOCKER_PLATFORM"
+echo ""
+
 # 显示系统信息
 log_info "系统信息:"
 log_info "  系统: macOS $(sw_vers -productVersion)"
 log_info "  架构: $(uname -m)"
 log_info "  内核: $(uname -r)"
 log_info "  当前用户: $(whoami)"
+log_info "  目标架构: $TARGET_ARCH"
 echo ""
 
 # 环境检查
@@ -74,6 +116,13 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
+# 检查Docker是否支持目标架构
+if ! docker buildx inspect &> /dev/null; then
+    log_warning "Docker buildx不可用，将使用默认构建器"
+else
+    log_success "Docker buildx可用，支持多架构构建"
+fi
+
 log_success "Docker环境检查通过"
 
 # 配置pip镜像
@@ -96,7 +145,7 @@ echo "==== 5. 安装Linux打包工具 ===="
 log_info "安装Linux打包相关工具..."
 
 # 安装PyInstaller
-pip install pyinstaller==5.13.2
+pip install pyinstaller==6.14.2
 
 # 安装AppImage工具
 if ! command -v appimagetool &> /dev/null; then
@@ -104,8 +153,9 @@ if ! command -v appimagetool &> /dev/null; then
     mkdir -p tools
     cd tools
     
-    # 下载AppImage工具
-    if [[ "$(uname -m)" == "arm64" ]]; then
+    # 根据目标架构下载对应的AppImage工具
+    if [[ "$TARGET_ARCH" == "arm64" ]]; then
+        # ARM64架构使用x86_64的AppImage工具（因为AppImage工具本身是x86_64的）
         APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
     else
         APPIMAGE_TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
@@ -125,48 +175,45 @@ echo "==== 6. 创建Docker构建环境 ===="
 log_info "创建Linux交叉编译环境..."
 
 # 创建Dockerfile
-cat > Dockerfile.linux << 'EOF'
-FROM ubuntu:22.04
+cat > Dockerfile.linux << EOF
+FROM --platform=$DOCKER_PLATFORM ubuntu:22.04
 
 # 设置环境变量
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV TARGET_ARCH=$TARGET_ARCH
 
 # 更新系统并安装基础工具
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    build-essential \
-    git \
-    wget \
-    curl \
-    pkg-config \
-    libssl-dev \
-    libffi-dev \
-    libjpeg-dev \
-    libpng-dev \
-    libfreetype6-dev \
-    libgif-dev \
-    libsdl2-dev \
-    libsdl2-image-dev \
-    libsdl2-mixer-dev \
-    libsdl2-ttf-dev \
-    libportaudio2 \
-    portaudio19-dev \
-    libasound2-dev \
-    libpulse-dev \
-    libjack-jackd2-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libavdevice-dev \
-    libavutil-dev \
-    libswscale-dev \
-    libavfilter-dev \
-    libavresample-dev \
-    libpostproc-dev \
-    libswresample-dev \
+RUN apt-get update && apt-get install -y \\
+    python3 \\
+    python3-pip \\
+    python3-venv \\
+    python3-dev \\
+    build-essential \\
+    git \\
+    wget \\
+    curl \\
+    pkg-config \\
+    libssl-dev \\
+    libffi-dev \\
+    libjpeg-dev \\
+    libpng-dev \\
+    libfreetype6-dev \\
+    libgif-dev \\
+    libportaudio2 \\
+    portaudio19-dev \\
+    libasound2-dev \\
+    libpulse-dev \\
+    libjack-jackd2-dev \\
+    libavcodec-dev \\
+    libavformat-dev \\
+    libavdevice-dev \\
+    libavutil-dev \\
+    libswscale-dev \\
+    libavfilter-dev \\
+    libavresample-dev \\
+    libpostproc-dev \\
+    libswresample-dev \\
     && rm -rf /var/lib/apt/lists/*
 
 # 安装PyInstaller
@@ -180,55 +227,53 @@ COPY . /app/
 
 # 创建虚拟环境
 RUN python3 -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
+ENV PATH="/app/venv/bin:\$PATH"
 
 # 安装Python依赖
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements-desktop.txt
 
 # 创建构建脚本
-RUN echo '#!/bin/bash\n\
-set -e\n\
-echo "开始构建Linux应用..."\n\
-\n\
-# 清理之前的构建\n\
-rm -rf build dist\n\
-\n\
-# 使用PyInstaller构建\n\
-pyinstaller \\\n\
-    --onefile \\\n\
-    --windowed \\\n\
-    --name="translate-chat" \\\n\
-    --add-data="assets:assets" \\\n\
-    --add-data="ui:ui" \\\n\
-    --add-data="utils:utils" \\\n\
-    --hidden-import=kivy \\\n\
-    --hidden-import=kivymd \\\n\
-    --hidden-import=plyer \\\n\
-    --hidden-import=websocket \\\n\
-    --hidden-import=aiohttp \\\n\
-    --hidden-import=cryptography \\\n\
-    --hidden-import=pyaudio \\\n\
-    --hidden-import=asr_client \\\n\
-    --hidden-import=translator \\\n\
-    --hidden-import=config_manager \\\n\
-    --hidden-import=speaker_change_detector \\\n\
-    --hidden-import=lang_detect \\\n\
-    --hidden-import=hotwords \\\n\
-    --hidden-import=audio_capture \\\n\
-    --hidden-import=audio_capture_pyaudio \\\n\
-    --hidden-import=audio_capture_plyer \\\n\
-    main.py\n\
-\n\
-echo "构建完成！"\n\
-echo "可执行文件位置: dist/translate-chat"\n\
-' > /app/build_linux.sh
+RUN cat > /app/build_linux.sh << 'EOF'
+#!/bin/bash
+set -e
+echo "开始构建Linux应用 ($TARGET_ARCH)..."
+
+# 清理之前的构建
+rm -rf build dist
+
+# 使用PyInstaller构建
+pyinstaller \
+    --onefile \
+    --windowed \
+    --name="translate-chat" \
+    --add-data="assets:assets" \
+    --add-data="ui:ui" \
+    --add-data="utils:utils" \
+    --hidden-import=kivy \
+    --hidden-import=kivymd \
+    --hidden-import=websocket \
+    --hidden-import=aiohttp \
+    --hidden-import=cryptography \
+    --hidden-import=pyaudio \
+    --hidden-import=asr_client \
+    --hidden-import=translator \
+    --hidden-import=config_manager \
+    --hidden-import=speaker_change_detector \
+    --hidden-import=lang_detect \
+    --hidden-import=hotwords \
+    --hidden-import=audio_capture \
+    --hidden-import=audio_capture_pyaudio \
+    main.py
+
+echo "构建完成！"
+echo "可执行文件位置: dist/translate-chat"
+EOF
 
 RUN chmod +x /app/build_linux.sh
 
 # 设置入口点
 ENTRYPOINT ["/app/build_linux.sh"]
-EOF
 
 log_success "Docker构建环境创建完成"
 
@@ -236,7 +281,7 @@ log_success "Docker构建环境创建完成"
 echo "==== 7. 构建Docker镜像 ===="
 log_info "构建Linux交叉编译Docker镜像..."
 
-if docker build -f Dockerfile.linux -t translate-chat-linux-builder .; then
+if docker build -f Dockerfile.linux -t translate-chat-linux-builder-$TARGET_ARCH .; then
     log_success "Docker镜像构建成功"
 else
     log_error "Docker镜像构建失败"
@@ -252,9 +297,10 @@ mkdir -p build/linux
 
 # 运行Docker容器进行构建
 if docker run --rm \
+    --platform $DOCKER_PLATFORM \
     -v "$(pwd)/build/linux:/app/build" \
     -v "$(pwd)/dist:/app/dist" \
-    translate-chat-linux-builder; then
+    translate-chat-linux-builder-$TARGET_ARCH; then
     log_success "Linux应用构建成功"
 else
     log_error "Linux应用构建失败"
@@ -298,17 +344,19 @@ fi
 # 创建AppRun脚本
 cat > build/linux/AppDir/AppRun << 'EOF'
 #!/bin/bash
-cd "$(dirname "$0")"
-exec "$(dirname "$0")/usr/bin/translate-chat" "$@"
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PATH="${HERE}"/usr/bin/:"${PATH}"
+export LD_LIBRARY_PATH="${HERE}"/usr/lib/:"${LD_LIBRARY_PATH}"
+exec "${HERE}"/usr/bin/translate-chat "$@"
 EOF
 
 chmod +x build/linux/AppDir/AppRun
 
 # 创建AppImage
-if appimagetool build/linux/AppDir dist/Translate-Chat-x86_64.AppImage; then
-    log_success "AppImage创建成功: dist/Translate-Chat-x86_64.AppImage"
+if appimagetool build/linux/AppDir "dist/Translate-Chat-$APPIMAGE_ARCH.AppImage"; then
+    log_success "AppImage包创建成功: dist/Translate-Chat-$APPIMAGE_ARCH.AppImage"
 else
-    log_error "AppImage创建失败"
+    log_warning "AppImage包创建失败"
 fi
 
 # 创建deb包
@@ -316,26 +364,31 @@ echo "==== 10. 创建deb包 ===="
 log_info "创建deb包..."
 
 # 创建deb包结构
-mkdir -p build/linux/deb/DEBIAN
 mkdir -p build/linux/deb/usr/bin
 mkdir -p build/linux/deb/usr/share/applications
 mkdir -p build/linux/deb/usr/share/icons/hicolor/256x256/apps
+mkdir -p build/linux/deb/DEBIAN
 
 # 复制文件
 cp dist/translate-chat build/linux/deb/usr/bin/
+chmod +x build/linux/deb/usr/bin/translate-chat
+
+# 复制桌面文件
 cp build/linux/AppDir/usr/share/applications/translate-chat.desktop build/linux/deb/usr/share/applications/
+
+# 复制图标
 if [[ -f "build/linux/AppDir/usr/share/icons/hicolor/256x256/apps/translate-chat.png" ]]; then
     cp build/linux/AppDir/usr/share/icons/hicolor/256x256/apps/translate-chat.png build/linux/deb/usr/share/icons/hicolor/256x256/apps/
 fi
 
 # 创建控制文件
-cat > build/linux/deb/DEBIAN/control << 'EOF'
+cat > build/linux/deb/DEBIAN/control << EOF
 Package: translate-chat
 Version: 1.0.0
 Section: utils
 Priority: optional
-Architecture: amd64
-Depends: libc6, libssl3, libffi8, libjpeg8, libpng16-16, libfreetype6, libsdl2-2.0-0, libsdl2-image-2.0-0, libsdl2-mixer-2.0-0, libsdl2-ttf-2.0-0, libportaudio2, libasound2, libpulse0, libjack-jackd2-0, libavcodec58, libavformat58, libavdevice58, libavutil56, libswscale5, libavfilter7, libavresample4, libpostproc55, libswresample3
+Architecture: $DEB_ARCH
+Depends: libc6, libssl3, libffi8, libjpeg8, libpng16-16, libfreetype6, libportaudio2, libasound2, libpulse0, libjack-jackd2-0, libavcodec58, libavformat58, libavdevice58, libavutil56, libswscale5, libavfilter7, libavresample4, libpostproc55, libswresample3
 Maintainer: Translate Chat Team <support@translatechat.org>
 Description: Real-time voice translation application
  Translate Chat is a powerful real-time voice translation
@@ -344,8 +397,8 @@ Description: Real-time voice translation application
 EOF
 
 # 创建deb包
-if dpkg-deb --build build/linux/deb dist/translate-chat_1.0.0_amd64.deb; then
-    log_success "deb包创建成功: dist/translate-chat_1.0.0_amd64.deb"
+if dpkg-deb --build build/linux/deb "dist/translate-chat_1.0.0_$DEB_ARCH.deb"; then
+    log_success "deb包创建成功: dist/translate-chat_1.0.0_$DEB_ARCH.deb"
 else
     log_warning "deb包创建失败，可能需要安装dpkg-deb工具"
 fi
@@ -355,7 +408,7 @@ echo "==== 11. 清理构建文件 ===="
 log_info "清理临时构建文件..."
 
 # 清理Docker镜像
-docker rmi translate-chat-linux-builder 2>/dev/null || true
+docker rmi translate-chat-linux-builder-$TARGET_ARCH 2>/dev/null || true
 
 # 清理构建目录
 rm -rf build/linux
@@ -373,29 +426,30 @@ else
     exit 1
 fi
 
-if [[ -f "dist/Translate-Chat-x86_64.AppImage" ]]; then
-    log_success "AppImage包构建成功: dist/Translate-Chat-x86_64.AppImage"
-    ls -lh dist/Translate-Chat-x86_64.AppImage
+if [[ -f "dist/Translate-Chat-$APPIMAGE_ARCH.AppImage" ]]; then
+    log_success "AppImage包构建成功: dist/Translate-Chat-$APPIMAGE_ARCH.AppImage"
+    ls -lh "dist/Translate-Chat-$APPIMAGE_ARCH.AppImage"
 fi
 
-if [[ -f "dist/translate-chat_1.0.0_amd64.deb" ]]; then
-    log_success "deb包构建成功: dist/translate-chat_1.0.0_amd64.deb"
-    ls -lh dist/translate-chat_1.0.0_amd64.deb
+if [[ -f "dist/translate-chat_1.0.0_$DEB_ARCH.deb" ]]; then
+    log_success "deb包构建成功: dist/translate-chat_1.0.0_$DEB_ARCH.deb"
+    ls -lh "dist/translate-chat_1.0.0_$DEB_ARCH.deb"
 fi
 
 echo ""
 echo "==== 13. 构建完成总结 ===="
 log_success "Linux桌面应用构建完成！"
 echo ""
+log_info "目标架构: $TARGET_ARCH"
 log_info "构建产物:"
 if [[ -f "dist/translate-chat" ]]; then
     echo "  - 可执行文件: dist/translate-chat"
 fi
-if [[ -f "dist/Translate-Chat-x86_64.AppImage" ]]; then
-    echo "  - AppImage包: dist/Translate-Chat-x86_64.AppImage"
+if [[ -f "dist/Translate-Chat-$APPIMAGE_ARCH.AppImage" ]]; then
+    echo "  - AppImage包: dist/Translate-Chat-$APPIMAGE_ARCH.AppImage"
 fi
-if [[ -f "dist/translate-chat_1.0.0_amd64.deb" ]]; then
-    echo "  - deb包: dist/translate-chat_1.0.0_amd64.deb"
+if [[ -f "dist/translate-chat_1.0.0_$DEB_ARCH.deb" ]]; then
+    echo "  - deb包: dist/translate-chat_1.0.0_$DEB_ARCH.deb"
 fi
 echo ""
 
@@ -408,13 +462,13 @@ echo "   - 确保目标系统安装了必要的依赖库"
 echo "   - 运行: ./translate-chat"
 echo ""
 echo "2. AppImage部署:"
-echo "   - 将 dist/Translate-Chat-x86_64.AppImage 复制到Linux系统"
-echo "   - 添加执行权限: chmod +x Translate-Chat-x86_64.AppImage"
-echo "   - 运行: ./Translate-Chat-x86_64.AppImage"
+echo "   - 将 dist/Translate-Chat-$APPIMAGE_ARCH.AppImage 复制到Linux系统"
+echo "   - 添加执行权限: chmod +x Translate-Chat-$APPIMAGE_ARCH.AppImage"
+echo "   - 运行: ./Translate-Chat-$APPIMAGE_ARCH.AppImage"
 echo ""
 echo "3. deb包部署:"
-echo "   - 将 dist/translate-chat_1.0.0_amd64.deb 复制到Ubuntu/Debian系统"
-echo "   - 安装: sudo dpkg -i translate-chat_1.0.0_amd64.deb"
+echo "   - 将 dist/translate-chat_1.0.0_$DEB_ARCH.deb 复制到Ubuntu/Debian系统"
+echo "   - 安装: sudo dpkg -i translate-chat_1.0.0_$DEB_ARCH.deb"
 echo "   - 修复依赖: sudo apt-get install -f"
 echo ""
 
@@ -428,10 +482,13 @@ if [[ -d "dist" ]]; then
     log_info "构建产物信息:"
     for file in dist/*; do
         if [[ -f "$file" ]]; then
-            local size=$(du -h "$file" | cut -f1)
-            local filename=$(basename "$file")
-            echo "  - $filename ($size)"
+            size=$(du -h "$file" | cut -f1)
+            echo "  - $(basename "$file") ($size)"
         fi
     done
-    echo ""
-fi 
+fi
+
+echo ""
+log_success "Linux桌面应用打包完成！"
+log_info "支持架构: $TARGET_ARCH"
+log_info "使用说明: 运行 ./scripts/build_linux_desktop.sh [x86_64|arm64] 指定目标架构" 

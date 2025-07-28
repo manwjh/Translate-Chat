@@ -1,16 +1,16 @@
 # Translate-Chat
 
 **文件名(File):** README.md  
-**版本(Version):** v0.1.3  
+**版本(Version):** v2.0.0  
 **作者(Author):** 深圳王哥 & AI  
 **创建日期(Created):** 2025/7/25  
-**简介(Description):** 基于火山引擎ASR和LLM的实时语音翻译工具，支持多语言互译
+**简介(Description):** 基于火山引擎ASR和LLM的实时语音翻译工具，专注桌面端体验
 
 ---
 
 ## 🧭 项目简介 / Project Overview
 
-Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于火山引擎的实时语音转文字与中英互译软件。主界面采用 KivyMD 框架，支持流式语音识别、自动语种检测与翻译，并以气泡对照方式展示原文与译文。
+Translate Chat 是一款桌面端（macOS、Linux）轻量级、基于火山引擎的实时语音转文字与中英互译软件。主界面采用 KivyMD 框架，支持流式语音识别、自动语种检测与翻译，并以气泡对照方式展示原文与译文。
 
 ---
 
@@ -23,7 +23,7 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 📥 **对话记录导出**：支持将所有对话记录下载为txt文件
 - ⏰ 超时自动固化分句提示
 - 🔄 一键重置、翻译显示开关
-- 📱 跨平台支持：桌面（PyAudio）、Android（Plyer）
+- 🖥️ 桌面端优化：macOS、Linux（ARM/x86_64）
 - 🔥 热词检测与说话人切换检测
 - 🔒 智能令牌管理（动态刷新、过期处理）
 - 🛡️ 增强网络错误处理和重试机制
@@ -32,6 +32,13 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 ---
 
 ## 更新日志 / Changelog
+
+### v2.0.0 (2025/7/25)
+- 🚀 **重大重构**: 移除Android支持，专注桌面端体验
+- 🖥️ **桌面优化**: 优化macOS和Linux平台性能
+- 🎯 **简化依赖**: 移除SDL2等Android相关依赖
+- 📦 **ARM支持**: 更好的ARM Linux平台兼容性
+- 🔧 **代码清理**: 移除Android相关代码和配置
 
 ### v0.1.2 (2025/7/25)
 - 🚀 **重大优化**: 重构为并行异步架构，ASR识别与翻译完全分离
@@ -51,7 +58,6 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 - 🐛 修复界面显示问题
 - 📝 完善项目文档结构
 
-
 ### v0.1.0 (2025/1/25)
 - 🎉 初始版本发布
 - 🎤 实现基础语音识别和翻译功能
@@ -64,20 +70,15 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 ```
 Translate-Chat/
   ├── asr_client.py                # 火山ASR客户端
-  ├── audio_capture.py             # 跨平台音频采集入口
+  ├── audio_capture.py             # 桌面端音频采集入口
   ├── audio_capture_pyaudio.py     # 桌面端音频采集实现
-  ├── audio_capture_plyer.py       # Android音频采集实现
-  
-  
   ├── lang_detect.py               # 语言检测
   ├── main.py                      # 程序主入口（KivyMD UI）
   ├── hotwords.py                  # 热词检测功能
   ├── speaker_change_detector.py   # 说话人切换检测
   ├── requirements-desktop.txt     # 桌面依赖
-  ├── requirements-android.txt     # Android依赖
-  ├── run.sh                       # 跨平台启动脚本
+  ├── run.sh                       # 桌面端启动脚本
   ├── translator.py                # 翻译逻辑
-  ├── buildozer.spec              # Android打包配置
   ├── assets/
   │     └── fonts/
   │           └── NotoSansSC-VariableFont_wght.ttf
@@ -87,154 +88,72 @@ Translate-Chat/
   │     ├── font_test.py           # 字体测试
   │     └── UI_README.md           # UI说明文档
   ├── scripts/
-  │     ├── build_android_ubuntu.sh # Ubuntu打包脚本
-  │     ├── build_android_macos.sh  # macOS打包脚本
-  │     ├── sdl2_local_manager.sh   # SDL2本地文件管理脚本
-  │     ├── buildozer.spec         # 脚本专用配置
-  │     └── README.md              # 打包脚本说明
+  │     ├── build_linux_desktop.sh      # macOS交叉编译Linux桌面应用脚本
+  │     ├── linux_dependency_manager.sh # Linux桌面应用依赖管理脚本
+  │     ├── test_linux_build.sh         # Linux打包环境测试脚本
+  │     └── common_build_utils.sh       # 通用工具函数
+  ├── utils/
+  │     ├── __init__.py
+  │     ├── file_downloader.py
+  │     └── secure_storage.py
   ├── docs/
-  │     ├── linux_dev_guide.md      # Linux开发、运行和打包说明
-  │     ├── macos_dev_guide.md      # macOS开发说明（可选）
-  │     └── android_dev_guide.md    # Android开发说明（可选）
-  └── ...
+  │     ├── config_guide.md
+  │     ├── linux_desktop_build.md
+  │     ├── macos_quick_start.md
+  │     └── sys_config_ui.md
+  ├── config_manager.py            # 配置管理
+  ├── setup_config.py              # 配置启动脚本
+  └── README.md                    # 项目说明
 ```
 
 ---
 
 ## 快速开始 / Quick Start
 
-### 🚀 macOS 用户（推荐）
-- **[macOS 快速开始指南](docs/macos_quick_start.md)** - 一键运行，自动安装依赖
+### 1. 环境要求
+- **Python**: 3.9-3.11 (推荐3.10)
+- **系统**: macOS 10.15+ 或 Linux (Ubuntu 18.04+)
+- **内存**: 建议4GB以上
+- **磁盘**: 建议2GB以上可用空间
 
-### 1. 环境准备
+### 2. 一键启动
 ```bash
 # 克隆项目
-git clone https://github.com/manwjh/Translate-Chat.git
+git clone https://github.com/your-repo/Translate-Chat.git
 cd Translate-Chat
 
+# 一键启动（自动安装依赖）
+chmod +x run.sh
+./run.sh
+```
+
+### 3. 手动安装
+```bash
 # 创建虚拟环境
 python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# 或 venv\Scripts\activate  # Windows
-```
+source venv/bin/activate
 
-### 2. 安装依赖
-```bash
-# 桌面版本
-pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 安装依赖
+pip install -r requirements-desktop.txt
 
-# Android版本
-pip install -r requirements-android.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-### 3. 配置API密钥
-```bash
-# 方式一：使用图形界面配置（推荐）
-python3 setup_config.py
-
-# 方式二：使用配置脚本
-bash scripts/setup_env.sh -i
-
-# 方式三：手动设置环境变量
-export ASR_APP_ID=你的ASR_APP_ID
-export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
-export LLM_API_KEY=你的LLM_API_KEY
-
-
-```
-
-### 4. 运行程序
-```bash
-# 使用启动脚本（推荐）
-bash run.sh
-
-# 或直接运行
+# 运行应用
 python3 main.py
 ```
 
 ---
 
-## 📦 打包说明 / Build Instructions
-
-### Android APK 打包
-
-#### Ubuntu 环境（推荐）
-```bash
-# 给脚本添加执行权限
-chmod +x scripts/build_android_ubuntu.sh
-
-# 运行打包脚本
-bash scripts/build_android_ubuntu.sh
-```
-
-#### macOS 环境
-```bash
-# 给脚本添加执行权限
-chmod +x scripts/build_android_macos.sh
-
-# 运行打包脚本
-bash scripts/build_android_macos.sh
-```
-
-### Linux 桌面应用打包
-
-#### macOS 环境（交叉编译）
-```bash
-# 1. 下载Linux依赖包（可选，用于加速构建）
-chmod +x scripts/linux_dependency_manager.sh
-bash scripts/linux_dependency_manager.sh
-
-# 2. 构建Linux桌面应用
-chmod +x scripts/build_linux_desktop.sh
-bash scripts/build_linux_desktop.sh
-```
-
-### 打包脚本特点
-- 🚀 **自动化配置**：自动安装依赖、配置环境
-- 🇨🇳 **国内镜像**：使用清华源加速下载
-- 📱 **跨平台支持**：Ubuntu、macOS 和 Linux 三平台
-- 📚 **详细文档**：完整的使用说明和故障排除
-- 📦 **SDL2本地管理**：智能检查并下载SDL2依赖文件
-- 🐳 **Docker交叉编译**：支持macOS交叉编译Linux应用
-
-### SDL2 本地文件管理
-
-在打包Android应用之前，建议先运行SDL2本地文件管理脚本，以加速构建过程：
-
-```bash
-# 检查并下载SDL2依赖文件
-bash scripts/sdl2_local_manager.sh
-```
-
-**脚本功能**：
-- 🔍 **智能检查**：检查 `/tmp` 目录下是否已存在SDL2文件
-- ⬇️ **按需下载**：只下载缺失的文件，避免重复下载
-- 🔄 **重试机制**：下载失败时自动重试，提高成功率
-- 🌐 **国内镜像**：使用GitHub官方源，确保文件完整性
-
-详细说明请参考：[scripts/README.md](scripts/README.md)
-
-### Linux 桌面应用打包
-
-详细说明请参考：[Linux桌面应用打包指南](docs/linux_desktop_build.md)
-
----
-
 ## 依赖安装 / Dependencies
 
-### 桌面（macOS/Linux）
-- Python 3.7+
-- PyAudio
-- Kivy >=2.3.0
-- KivyMD ==1.1.1
-- websocket-client
-- aiohttp
-
-### Android 打包环境
-- **Ubuntu**: OpenJDK 8, Python 3.7-3.10
-- **macOS**: OpenJDK 17, Python 3.7-3.10
-- **内存**: 建议4GB以上
-- **磁盘**: 建议10GB以上可用空间
+### 桌面端依赖
+- **Python**: 3.9-3.11 (推荐3.10)
+- **PyAudio**: 音频采集
+- **Kivy**: >=2.3.0,<3.0.0
+- **KivyMD**: ==1.1.1
+- **websocket-client**: 网络通信
+- **aiohttp**: 异步HTTP
+- **cryptography**: 加密存储
+- **numpy/scipy**: 音频处理
+- **webrtcvad/resemblyzer**: 语音识别
 
 ### Linux 桌面应用打包环境
 - **macOS**: Docker Desktop, Python 3.9-3.11
@@ -250,172 +169,146 @@ bash scripts/sdl2_local_manager.sh
 
 ### 配置优先级机制
 
-**重要说明**: 系统按以下优先级加载配置，最终所有配置都会统一存储在配置管理器中：
+1. **环境变量** (开发者模式)
+2. **加密存储** (用户模式) 
+3. **默认配置** (兜底模式)
 
-1. **环境变量** (最高优先级) - 存储在操作系统环境变量中
-2. **默认配置** (最低优先级) - 硬编码在代码中（仅用于开发测试，不包含敏感信息）
+### 配置方法
 
-**统一存储**: 无论使用哪种配置方式，最终所有配置都会被统一存储在 `config_manager.config` 字典中，确保配置访问的一致性和统一性。
-
-### 方式一：环境变量配置（推荐）
-
-#### 使用图形界面配置（最简单）
+#### 方法1: 图形界面配置 (推荐)
 ```bash
-# 启动图形配置界面
 python3 setup_config.py
 ```
 
-#### 使用配置脚本
+#### 方法2: 环境变量配置
 ```bash
-# macOS/Linux/Android
-bash scripts/setup_env.sh -i
-
-# Windows
-scripts\setup_env.bat -i
-```
-
-#### 手动设置环境变量
-
-**macOS/Linux/Android:**
-```bash
-export ASR_APP_ID=你的ASR_APP_ID
-export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
-export LLM_API_KEY=你的LLM_API_KEY
-```
-
-**Windows (PowerShell):**
-```powershell
-$env:ASR_APP_ID="你的ASR_APP_ID"
-$env:ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
-$env:LLM_API_KEY="你的LLM_API_KEY"
-```
-
-**Windows (CMD):**
-```cmd
-set ASR_APP_ID=你的ASR_APP_ID
-set ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
-set LLM_API_KEY=你的LLM_API_KEY
-```
-
-
-
-### 配置检查
-
-```bash
-# macOS/Linux/Android
-bash scripts/setup_env.sh -c
-
-# Windows
-scripts\setup_env.bat -c
-```
-
-### 配置机制详解
-
-#### 配置加载流程
-```
-启动程序 → 配置管理器初始化 → 按优先级检查配置源:
-    1. 检查环境变量 → 如果存在，加载到config_manager.config
-    2. 使用默认配置 → 如果环境变量不存在，加载到config_manager.config
-    ↓
-所有模块通过config_manager.config访问配置
-```
-
-#### 令牌管理机制
-系统支持智能令牌管理，包括：
-- **动态令牌刷新**：自动检测令牌状态，支持实时刷新
-- **过期处理**：令牌过期时自动重新获取，确保服务连续性
-- **安全存储**：令牌仅存储在内存中，不写入文件
-- **环境变量优先**：优先使用环境变量中的令牌，确保安全性
-
-#### 配置访问方式
-```python
-# 通过配置管理器访问
-from config_manager import config_manager
-value = config_manager.get('ASR_APP_ID')
-```
-
-#### 存储位置说明
-| 配置方式 | 原始存储位置 | 最终统一存储位置 |
-|---------|-------------|-----------------|
-| **环境变量** | 操作系统环境变量 | config_manager.config |
-| **默认配置** | 代码中硬编码（不含敏感信息） | config_manager.config |
-
-> ⚠️ 建议使用环境变量方式，避免将密钥写入代码或上传到GitHub。
-
-### 🔒 安全说明 / Security Notes
-
-**重要安全提醒**：
-- ✅ **已修复**：移除了代码中的硬编码API密钥
-- ✅ **推荐**：使用环境变量方式配置API密钥
-- ✅ **安全**：令牌仅存储在内存中，不写入文件
-- ⚠️ **注意**：请勿将真实的API密钥提交到版本控制系统
-- ⚠️ **注意**：定期更换API密钥，确保账户安全
-
-**令牌管理最佳实践**：
-1. 使用环境变量存储API密钥
-2. 定期检查令牌有效性
-3. 及时更新过期的令牌
-4. 避免在日志中输出敏感信息
-
----
-
-## 运行方式 / How to Run
-
-推荐使用启动脚本自动安装依赖并运行：
-```bash
-bash run.sh
-```
-或手动：
-```bash
+export ASR_APP_ID="your_asr_app_id"
+export ASR_ACCESS_KEY="your_asr_access_key"
+export LLM_API_KEY="your_llm_api_key"
 python3 main.py
 ```
 
----
+#### 方法3: 手动编辑配置文件
+```bash
+# 编辑配置文件
+nano ~/.translate_chat/config.json
+```
 
-## 主界面说明 / Main UI Overview
+### 所需API密钥
 
-- 采用 KivyMD 框架，气泡式对照显示原文与翻译
-- 支持 Mic 开关、Stop、Reset、翻译显示开关
-- 详细界面与交互逻辑见 [ui/UI_README.md](ui/UI_README.md)
+1. **火山引擎ASR** (语音识别)
+   - ASR_APP_ID: 应用ID
+   - ASR_ACCESS_KEY: 访问密钥
 
----
-
-## 试验模块 / Experimental Modules
-
-1. **speaker_change_detector.py** - 人声切换检测
-   - 基于 Resemblyzer 和 WebRTC VAD 的说话人变化检测
-   - 支持实时音频流处理
-   - 可配置的检测阈值和参数
+2. **火山引擎LLM** (翻译服务)
+   - LLM_API_KEY: API密钥
 
 ---
 
-## 开发文档 / Development Docs
+## 使用说明 / Usage
 
-- 📖 [Linux开发指南](docs/linux_dev_guide.md) - Linux环境开发、运行和打包
-- 🍎 [Android开发指南](docs/android_dev_guide.md) - Android平台开发说明
-- 📦 [打包脚本说明](scripts/README.md) - 自动化打包脚本使用指南
-- 🖥️ [UI开发说明](ui/UI_README.md) - 界面开发文档
+### 基本操作
+1. **启动应用**: 运行 `./run.sh` 或 `python3 main.py`
+2. **配置API**: 首次运行会自动启动配置界面
+3. **开始录音**: 点击录音按钮开始语音识别
+4. **查看结果**: 识别结果和翻译会实时显示
+5. **导出记录**: 点击下载按钮导出对话记录
 
----
-
-## 其他说明 / Notes
-- `ui/main_window_kivy.py` 为主力UI，`ui/main_window_qt.py`为备用PyQt界面
-- 字体已内置于 `assets/fonts/`
-- `font_test.py` 可用于测试字体显示
-- 旧版 `requirements.txt`、`ui/main_window.py` 已废弃
-
-- 开发文档见 `docs/` 目录，包含各平台开发、运行与打包说明
+### 高级功能
+- **热词检测**: 自动识别和标记重要词汇
+- **说话人切换**: 检测不同说话人的语音
+- **异步翻译**: 翻译不阻塞实时识别
+- **错误重试**: 自动处理网络错误和重试
 
 ---
 
-## 📞 联系方式 / Contact
+## 打包部署 / Build & Deploy
 
-- **项目邮箱**: manwjh@126.com
-- **GitHub**: https://github.com/manwjh/Translate-Chat
+### Linux 桌面应用打包
+
+#### macOS用户（交叉编译）
+```bash
+# 1. 测试Linux打包环境（推荐）
+./scripts/test_linux_build.sh
+
+# 2. 下载Linux依赖包（可选，用于加速构建）
+./scripts/linux_dependency_manager.sh
+
+# 3. 构建Linux桌面应用
+./scripts/build_linux_desktop.sh
+```
+
+### 打包脚本特点
+- 🚀 **自动化配置**：自动安装依赖、配置环境
+- 🇨🇳 **国内镜像**：使用清华源加速下载
+- 🖥️ **桌面端优化**：专注macOS和Linux平台
+- 📚 **详细文档**：完整的使用说明和故障排除
+- 🐳 **Docker交叉编译**：支持macOS交叉编译Linux应用
+
+### Linux 桌面应用打包
+
+详细说明请参考：[Linux桌面应用打包指南](docs/linux_desktop_build.md)
 
 ---
 
-## 致谢 / Thanks
-- 火山引擎 ASR & LLM API
-- Kivy/KivyMD & PyQt
+## 故障排除 / Troubleshooting
+
+### 常见问题
+
+#### 1. 音频设备问题
+```bash
+# Linux下安装PortAudio
+sudo apt-get install portaudio19-dev
+
+# macOS下安装PortAudio
+brew install portaudio
+```
+
+#### 2. Python版本问题
+```bash
+# 检查Python版本
+python3 --version
+
+# 推荐使用Python 3.10
+```
+
+#### 3. 依赖安装失败
+```bash
+# 使用国内镜像
+pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+#### 4. 权限问题
+```bash
+# 确保脚本有执行权限
+chmod +x run.sh
+chmod +x scripts/*.sh
+```
+
+---
+
+## 技术支持 / Support
+
+如果遇到问题，请：
+
+1. 检查环境要求是否满足
+2. 查看错误日志信息
+3. 参考故障排除指南
+4. 提交Issue并提供详细的错误信息
+
+---
+
+## 贡献指南 / Contributing
+
+欢迎贡献代码和改进建议：
+
+1. Fork项目仓库
+2. 创建功能分支
+3. 提交代码更改
+4. 创建Pull Request
+5. 等待代码审查
+
+---
+
+*本文档最后更新: 2025/7/25* 
 - 深圳王哥 & AI 
