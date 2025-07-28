@@ -196,11 +196,9 @@ generate_dockerfile() {
             ;;
     esac
     
-    # 检查网络连接，选择合适的基础镜像
+    # 基础镜像配置
     local base_image="ubuntu:22.04"
-    # 直接使用官方镜像源，通过重试机制处理网络问题
     log_info "使用官方镜像源"
-    base_image="ubuntu:22.04"
     
     cat > "$dockerfile_path" << EOF
 FROM --platform=$docker_platform $base_image
@@ -325,23 +323,151 @@ build_docker_image() {
     
     log_info "构建Docker镜像: $image_name"
     
-    # 尝试构建，最多重试3次
-    for attempt in 1 2 3; do
-        log_info "第 $attempt 次尝试构建Docker镜像..."
+    # 第一次尝试使用官方镜像
+    log_info "第1次尝试：使用官方Ubuntu镜像"
+    if docker build --network=host --progress=plain -f "$dockerfile_path" -t "$image_name" .; then
+        log_success "Docker镜像构建成功: $image_name"
+        return 0
+    else
+        log_warning "官方镜像构建失败，切换到国内镜像源重试..."
+        
+        # 第二次尝试使用国内镜像
+        log_info "第2次尝试：使用国内Ubuntu镜像源"
+        
+        # 重新生成使用国内镜像的Dockerfile
+        local docker_platform=""
+        case "$target_arch" in
+            "x86_64")
+                docker_platform="linux/amd64"
+                ;;
+            "arm64")
+                docker_platform="linux/arm64"
+                ;;
+        esac
+        
+        # 使用腾讯云镜像源
+        local base_image="ccr.ccs.tencentyun.com/library/ubuntu:22.04"
+        
+        cat > "$dockerfile_path" << EOF
+FROM --platform=$docker_platform $base_image
+
+# 设置环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV TARGET_ARCH=$target_arch
+
+# 配置国内镜像源
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \\
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
+
+# 更新系统并安装基础工具
+RUN apt-get update && apt-get install -y \\
+    python3 \\
+    python3-pip \\
+    python3-venv \\
+    python3-dev \\
+    build-essential \\
+    git \\
+    wget \\
+    curl \\
+    pkg-config \\
+    libssl-dev \\
+    libffi-dev \\
+    libjpeg-dev \\
+    libpng-dev \\
+    libfreetype6-dev \\
+    libgif-dev \\
+    libportaudio2 \\
+    portaudio19-dev \\
+    libasound2-dev \\
+    libpulse-dev \\
+    libjack-jackd2-dev \\
+    libavcodec-dev \\
+    libavformat-dev \\
+    # libavdevice-dev \\  # 移除FFmpeg设备库依赖
+    libavutil-dev \\
+    libswscale-dev \\
+    libavfilter-dev \\
+    libavresample-dev \\
+    libpostproc-dev \\
+    libswresample-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
+# 配置pip使用国内镜像源
+RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \\
+    pip3 config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+
+# 安装PyInstaller
+RUN pip3 install --no-cache-dir pyinstaller==5.13.2
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制项目文件
+COPY . /app/
+
+# 创建虚拟环境
+RUN python3 -m venv /app/venv
+ENV PATH="/app/venv/bin:\$PATH"
+
+# 安装Python依赖
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements-desktop.txt
+
+# 移除与PyInstaller不兼容的typing包
+RUN pip uninstall -y typing || true
+
+# 创建构建脚本
+RUN cat > /app/build_linux.sh << 'SCRIPT_EOF'
+#!/bin/bash
+set -e
+echo "开始构建Linux应用 (\$TARGET_ARCH)..."
+
+# 清理之前的构建
+rm -rf build dist
+
+# 使用PyInstaller构建
+pyinstaller \\
+    --onefile \\
+    --windowed \\
+    --name="translate-chat" \\
+    --add-data="assets:assets" \\
+    --add-data="ui:ui" \\
+    --add-data="utils:utils" \\
+    --hidden-import=kivy \\
+    --hidden-import=kivymd \\
+    --hidden-import=websocket \\
+    --hidden-import=aiohttp \\
+    --hidden-import=cryptography \\
+    --hidden-import=pyaudio \\
+    --hidden-import=asr_client \\
+    --hidden-import=translator \\
+    --hidden-import=config_manager \\
+    
+    --hidden-import=lang_detect \\
+    --hidden-import=hotwords \\
+    --hidden-import=audio_capture \\
+    --hidden-import=audio_capture_pyaudio \\
+    main.py
+
+echo "构建完成！"
+echo "可执行文件位置: dist/translate-chat"
+SCRIPT_EOF
+
+RUN chmod +x /app/build_linux.sh
+
+# 设置入口点
+ENTRYPOINT ["/app/build_linux.sh"]
+EOF
         
         if docker build --network=host --progress=plain -f "$dockerfile_path" -t "$image_name" .; then
-            log_success "Docker镜像构建成功: $image_name"
+            log_success "Docker镜像构建成功: $image_name (使用国内镜像源)"
             return 0
         else
-            if [[ $attempt -lt 3 ]]; then
-                log_warning "第 $attempt 次构建失败，等待10秒后重试..."
-                sleep 10
-            else
-                log_error "Docker镜像构建失败: $image_name (已重试3次)"
-                return 1
-            fi
+            log_error "Docker镜像构建失败: $image_name (官方镜像和国内镜像都失败)"
+            return 1
         fi
-    done
+    fi
 }
 
 # 在Docker中构建应用
