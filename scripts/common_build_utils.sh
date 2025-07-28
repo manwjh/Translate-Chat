@@ -1,9 +1,11 @@
 #!/bin/bash
-# Translate Chat - 通用构建工具脚本
+# =============================================================
 # 文件名(File): common_build_utils.sh
-# 版本(Version): v2.0.0
-# 创建日期(Created): 2025/7/25
-# 简介(Description): 通用构建工具函数，移除Android支持，专注桌面端
+# 版本(Version): v1.0.0
+# 作者(Author): 深圳王哥 & AI
+# 创建日期(Created): 2025/1/28
+# 简介(Description): 通用构建工具脚本 - 提供所有构建脚本共享的配置和函数
+# =============================================================
 
 # 颜色定义
 RED='\033[0;31m'
@@ -13,170 +15,141 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 日志函数
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
+# 全局配置
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BUILD_DIR="$PROJECT_ROOT/build"
+DIST_DIR="$PROJECT_ROOT/dist"
+CACHE_DIR="$PROJECT_ROOT/.build_cache"
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
+# PyInstaller配置
+PYINSTALLER_VERSION="5.13.2"
+PYINSTALLER_OPTIONS=(
+    "--onefile"
+    "--windowed"
+    "--name=translate-chat"
+    "--add-data=assets:assets"
+    "--add-data=ui:ui"
+    "--add-data=utils:utils"
+)
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# 隐藏导入列表
+HIDDEN_IMPORTS=(
+    "kivy"
+    "kivymd"
+    "kivymd.icon_definitions"
+    "kivymd.icon_definitions.md_icons"
+    "kivymd.uix.label"
+    "kivymd.uix.button"
+    "kivymd.uix.card"
+    "kivymd.uix.boxlayout"
+    "kivymd.uix.textfield"
+    "kivymd.uix.dialog"
+    "kivymd.uix.list"
+    "kivymd.uix.selectioncontrol"
+    "kivymd.uix.screen"
+    "kivymd.uix.toolbar"
+    "kivymd.uix.widget"
+    "websocket"
+    "aiohttp"
+    "cryptography"
+    "pyaudio"
+    "asr_client"
+    "translator"
+    "config_manager"
+    "lang_detect"
+    "hotwords"
+    "audio_capture"
+    "audio_capture_pyaudio"
+    "webrtcvad"
+    "numpy"
+    "scipy"
+    "requests"
+    "urllib3"
+    "utils.secure_storage"
+    "utils.file_downloader"
+)
 
-# 检查系统类型
-detect_system() {
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "macos"
-    elif [[ -f /etc/os-release ]]; then
-        if grep -q "Ubuntu" /etc/os-release; then
-            echo "ubuntu"
-        else
-            echo "linux"
-        fi
-    else
-        echo "unknown"
-    fi
-}
-
-# 检查Python版本
-check_python_version() {
-    local python_cmd="$1"
-    local version
+# 检测主机平台
+detect_host_platform() {
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
     
-    if ! command -v "$python_cmd" &> /dev/null; then
-        log_error "Python命令不存在: $python_cmd"
-        return 1
-    fi
-    
-    version=$("$python_cmd" --version 2>&1 | cut -d' ' -f2)
-    local major=$(echo "$version" | cut -d'.' -f1)
-    local minor=$(echo "$version" | cut -d'.' -f2)
-    
-    log_info "检测到Python版本: $version"
-    
-    if [[ $major -eq 3 ]] && [[ $minor -ge 9 ]] && [[ $minor -le 11 ]]; then
-        log_success "Python版本兼容: $version"
-        return 0
-    else
-        log_error "Python版本不兼容: $version (需要3.9-3.11)"
-        return 1
-    fi
+    case "$os" in
+        "darwin")
+            if [[ "$arch" == "arm64" ]]; then
+                echo "macos-arm64"
+            else
+                echo "macos-x86_64"
+            fi
+            ;;
+        "linux")
+            if [[ "$arch" == "x86_64" ]]; then
+                echo "linux-x86_64"
+            elif [[ "$arch" == "aarch64" ]]; then
+                echo "linux-arm64"
+            else
+                echo "linux-unknown"
+            fi
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
 }
 
-# 安装兼容的Python版本
-install_compatible_python() {
-    local system=$(detect_system)
-    local target_version="3.10"
+# 检查Python环境
+check_python_environment() {
+    log_info "检查Python环境..."
     
-    if [[ "$system" == "ubuntu" ]]; then
-        # Ubuntu: 使用apt安装Python 3.10
-        log_info "在Ubuntu上安装Python $target_version..." >&2
-        
-        if ! command -v python3.10 &> /dev/null; then
-            log_info "安装Python 3.10..." >&2
-            if ! sudo apt update && sudo apt install -y python3.10 python3.10-venv python3.10-dev; then
-                log_error "安装Python 3.10失败" >&2
-                return 1
+    local python_cmd=""
+    for cmd in python3.10 python3.9 python3; do
+        if command -v $cmd &> /dev/null; then
+            local version=$($cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
+            if [[ "$version" =~ ^3\.(9|10|11)$ ]]; then
+                python_cmd=$cmd
+                break
             fi
         fi
-        
-        # 检查安装结果
-        if command -v python3.10 &> /dev/null; then
-            log_success "Python 3.10安装成功" >&2
-            printf "%s" "python3.10"
-            return 0
-        else
-            log_error "Python 3.10安装失败" >&2
-            return 1
-        fi
-        
-    elif [[ "$system" == "macos" ]]; then
-        # macOS: 使用Homebrew安装Python 3.10
-        log_info "在macOS上安装Python $target_version..." >&2
-        
-        if ! command -v brew &> /dev/null; then
-            log_error "Homebrew未安装，请先安装Homebrew" >&2
-            return 1
-        fi
-        
-        if ! brew list --versions python@3.10 >/dev/null; then
-            log_info "安装Python 3.10..." >&2
-            if ! brew install python@3.10; then
-                log_error "安装Python 3.10失败" >&2
-                return 1
-            fi
-        fi
-        
-        # 检查安装结果
-        if [[ -f "/opt/homebrew/bin/python3.10" ]]; then
-            log_success "Python 3.10安装成功" >&2
-            printf "%s" "/opt/homebrew/bin/python3.10"
-            return 0
-        elif [[ -f "/usr/local/bin/python3.10" ]]; then
-            log_success "Python 3.10安装成功" >&2
-            printf "%s" "/usr/local/bin/python3.10"
-            return 0
-        else
-            log_error "Python 3.10安装失败" >&2
-            return 1
-        fi
-        
-    else
-        log_error "不支持的系统类型: $system" >&2
+    done
+    
+    if [[ -z "$python_cmd" ]]; then
+        log_error "未找到兼容的Python版本 (需要3.9-3.11)"
         return 1
     fi
+    
+    log_success "使用Python: $($python_cmd --version)"
+    echo "$python_cmd"
+    return 0
 }
 
-# 设置pip镜像
-setup_pip_mirror() {
-    log_info "配置pip镜像源..."
+# 创建构建目录
+create_build_directories() {
+    log_info "创建构建目录..."
     
-    # 创建pip配置目录
-    mkdir -p ~/.pip
+    mkdir -p "$BUILD_DIR"
+    mkdir -p "$DIST_DIR"
+    mkdir -p "$CACHE_DIR"
     
-    # 配置清华源
-    cat > ~/.pip/pip.conf << EOF
-[global]
-index-url = https://pypi.tuna.tsinghua.edu.cn/simple
-trusted-host = pypi.tuna.tsinghua.edu.cn
-timeout = 120
-EOF
-    
-    log_success "pip镜像源配置完成"
+    log_success "构建目录创建完成"
 }
 
-# 创建虚拟环境
-create_venv() {
+# 设置Python虚拟环境
+setup_python_environment() {
+    local venv_path="$PROJECT_ROOT/venv"
     local python_cmd="$1"
-    local venv_path="$2"
     
-    log_info "创建Python虚拟环境: $venv_path"
+    log_info "设置Python虚拟环境..."
     
-    if [[ -d "$venv_path" ]]; then
-        log_warning "虚拟环境已存在: $venv_path"
-        return 0
+    # 创建虚拟环境
+    if [[ ! -d "$venv_path" ]]; then
+        $python_cmd -m venv "$venv_path"
     fi
-    
-    if "$python_cmd" -m venv "$venv_path"; then
-        log_success "虚拟环境创建成功: $venv_path"
-        return 0
-    else
-        log_error "虚拟环境创建失败: $venv_path"
-        return 1
-    fi
-}
-
-# 安装Python依赖
-install_python_deps() {
-    local venv_path="$1"
-    
-    log_info "安装Python依赖..."
     
     # 激活虚拟环境
     source "$venv_path/bin/activate"
@@ -184,133 +157,136 @@ install_python_deps() {
     # 升级pip
     pip install --upgrade pip setuptools wheel
     
-    # 安装依赖
-    if pip install -r requirements-desktop.txt; then
-        log_success "Python依赖安装完成"
-        
-        # 移除与PyInstaller不兼容的typing包
-        log_info "检查并移除与PyInstaller不兼容的包..."
-        if pip show typing &> /dev/null; then
-            log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
-            pip uninstall -y typing
-        fi
-        
-        return 0
+    # 配置pip使用国内镜像源
+    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/
+    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+    
+    # 安装PyInstaller
+    pip install --no-cache-dir "pyinstaller==$PYINSTALLER_VERSION"
+    
+    # 安装项目依赖
+    if [[ -f "requirements-desktop.txt" ]]; then
+        pip install -r requirements-desktop.txt
     else
-        log_error "Python依赖安装失败"
-        return 1
+        log_warning "未找到requirements-desktop.txt文件"
     fi
+    
+    # 移除与PyInstaller不兼容的typing包
+    if pip show typing &> /dev/null; then
+        log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y typing
+    fi
+    
+    log_success "Python环境设置完成"
 }
 
-# 检查Docker环境
-check_docker_environment() {
-    log_info "检查Docker环境..."
+# 构建PyInstaller命令
+build_pyinstaller_command() {
+    local cmd="pyinstaller"
     
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker未安装"
-        return 1
-    fi
+    # 添加基本选项
+    for option in "${PYINSTALLER_OPTIONS[@]}"; do
+        cmd="$cmd $option"
+    done
     
-    if ! docker info &> /dev/null; then
-        log_error "Docker未运行"
-        return 1
-    fi
+    # 添加隐藏导入
+    for import in "${HIDDEN_IMPORTS[@]}"; do
+        cmd="$cmd --hidden-import=$import"
+    done
     
-    log_success "Docker环境检查通过"
-    return 0
+    # 添加主文件
+    cmd="$cmd main.py"
+    
+    echo "$cmd"
 }
 
-# 检查磁盘空间
-check_disk_space() {
-    local required_space=10  # GB
-    local available_space
+# 清理构建缓存
+clean_build_cache() {
+    log_info "清理构建缓存..."
     
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        available_space=$(df -g . | awk 'NR==2 {print $4}')
-    else
-        available_space=$(df -BG . | awk 'NR==2 {print $4}' | sed 's/G//')
+    # 清理构建目录
+    rm -rf "$BUILD_DIR"
+    rm -rf "$CACHE_DIR"
+    rm -rf "$PROJECT_ROOT/build"
+    rm -rf "$PROJECT_ROOT/dist"
+    
+    # 清理PyInstaller缓存
+    rm -f "$PROJECT_ROOT/translate-chat.spec"
+    
+    # 清理Python缓存
+    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find . -name "*.pyc" -delete 2>/dev/null || true
+    
+    log_success "构建缓存清理完成"
+}
+
+# 显示构建结果
+show_build_results() {
+    log_info "构建结果:"
+    echo ""
+    
+    if [[ -d "$DIST_DIR" ]]; then
+        echo "  构建产物:"
+        ls -la "$DIST_DIR" 2>/dev/null | grep -E "(translate-chat|\.AppImage|\.deb|\.app)" || echo "    无构建产物"
     fi
     
-    log_info "可用磁盘空间: ${available_space}GB"
-    
-    if [[ $available_space -lt $required_space ]]; then
-        log_error "磁盘空间不足: 需要${required_space}GB，可用${available_space}GB"
-        return 1
-    fi
-    
-    log_success "磁盘空间检查通过"
-    return 0
+    echo ""
+    log_info "构建产物位置: $DIST_DIR"
 }
 
 # 检查网络连接
 check_network_connection() {
     log_info "检查网络连接..."
     
-    if ping -c 1 8.8.8.8 &> /dev/null; then
+    if curl -s --connect-timeout 10 --max-time 30 https://pypi.org/ > /dev/null; then
         log_success "网络连接正常"
         return 0
     else
-        log_warning "网络连接异常，可能影响依赖下载"
-        return 0  # 不强制要求网络连接
+        log_warning "网络连接可能有问题，将使用国内镜像源"
+        return 1
     fi
 }
 
-# 环境检查主函数
-check_environment() {
-    local system=$(detect_system)
-    log_info "检测到系统: $system" >&2
+# 验证构建产物
+validate_build_artifact() {
+    local artifact_path="$1"
     
-    # 检查Python
-    local python_cmd="python3"
-    log_info "开始检查Python环境..." >&2
-    
-    if ! check_python_version "$python_cmd" >&2; then
-        log_warning "当前Python版本不兼容，尝试自动安装合适的版本..." >&2
-        local new_python_cmd
-        new_python_cmd=$(install_compatible_python)
-        local install_result=$?
-        
-        log_info "安装结果: $install_result, 新Python命令: '$new_python_cmd'" >&2
-        
-        if [[ $install_result -eq 0 && -n "$new_python_cmd" ]]; then
-            log_success "使用新安装的Python: $new_python_cmd" >&2
-            # 重新检查版本
-            if check_python_version "$new_python_cmd" >&2; then
-                log_success "Python环境检查通过" >&2
-                # 返回新安装的Python命令
-                printf "%s" "$new_python_cmd"
-                return 0
-            else
-                log_error "Python环境检查失败" >&2
-                return 1
-            fi
-        else
-            log_error "无法安装合适的Python版本" >&2
-            log_info "请手动安装Python 3.9-3.11版本后重试" >&2
-            return 1
-        fi
-    else
-        log_success "Python环境检查通过" >&2
-        printf "%s" "$python_cmd"
-        return 0
+    if [[ ! -f "$artifact_path" ]]; then
+        log_error "构建产物不存在: $artifact_path"
+        return 1
     fi
+    
+    if [[ ! -x "$artifact_path" ]]; then
+        log_error "构建产物不可执行: $artifact_path"
+        return 1
+    fi
+    
+    log_success "构建产物验证通过: $artifact_path"
+    return 0
 }
 
-# 错误处理函数
-handle_error() {
-    local exit_code=$?
-    log_error "脚本执行失败，退出码: $exit_code"
-    exit $exit_code
-}
+# 显示帮助信息模板
+show_help_template() {
+    local script_name="$1"
+    local description="$2"
+    local additional_options="$3"
+    
+    cat << EOF
+$script_name
 
-# 设置错误处理
-trap handle_error ERR
+用法: $0 [选项]
 
-# 清理函数
-cleanup() {
-    log_info "清理临时文件..."
-    # 可以在这里添加清理逻辑
-}
+选项:
+    -h, --help          显示此帮助信息
+    -c, --clean         清理构建缓存
+    -v, --verbose       详细输出
+    -t, --test          仅测试环境，不构建
+$additional_options
 
-# 设置退出时清理
-trap cleanup EXIT 
+示例:
+    $0                   # 完整构建
+    $0 -c               # 清理构建缓存
+    $0 -t               # 测试环境
+
+EOF
+} 

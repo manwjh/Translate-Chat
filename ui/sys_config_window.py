@@ -24,27 +24,7 @@ from kivy.metrics import dp
 from kivy.core.text import LabelBase
 from kivy.resources import resource_add_path
 
-# Auto-adapt font path
-font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts'))
-if not os.path.exists(os.path.join(font_path, 'NotoSansSC-VariableFont_wght.ttf')):
-    font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'assets/fonts'))
-
-# Add font path
-resource_add_path(font_path)
-
-# Register Chinese font - always use local font
-def setup_fonts():
-    """Always register and use the local font file."""
-    font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts/NotoSansSC-VariableFont_wght.ttf'))
-    try:
-        LabelBase.register('CustomFont', font_path)
-        # print(f"Custom font registered: {font_path}")
-        return font_path
-    except Exception as e:
-        print(f"[字体] 注册失败: {e}")
-        return font_path  # Still return path for fallback
-
-FONT_NAME = setup_fonts()
+# 使用系统字体，支持多语言显示
 
 from kivymd.app import MDApp
 from kivymd.uix.screen import MDScreen
@@ -69,17 +49,17 @@ def get_platform():
 
 # Interface definition
 KV = '''
-# Global font settings - always use local font
+# Global font settings - use system fonts for multi-language support
 <MDLabel>:
-    font_name: app.chinese_font if app and hasattr(app, 'chinese_font') else 'assets/fonts/NotoSansSC-VariableFont_wght.ttf'
+    font_name: app.font_name
 <MDRaisedButton>:
-    font_name: app.chinese_font if app and hasattr(app, 'chinese_font') else 'assets/fonts/NotoSansSC-VariableFont_wght.ttf'
+    font_name: app.font_name
 <MDTextButton>:
-    font_name: app.chinese_font if app and hasattr(app, 'chinese_font') else 'assets/fonts/NotoSansSC-VariableFont_wght.ttf'
+    font_name: app.font_name
 <MDTextField>:
-    font_name: app.chinese_font if app and hasattr(app, 'chinese_font') else 'assets/fonts/NotoSansSC-VariableFont_wght.ttf'
+    font_name: app.font_name
 <MDTopAppBar>:
-    font_name: app.chinese_font if app and hasattr(app, 'chinese_font') else 'assets/fonts/NotoSansSC-VariableFont_wght.ttf'
+    font_name: app.font_name
 
 <APIConfigScreen>:
     md_bg_color: app.theme_cls.bg_darkest if app else (0.1,0.1,0.1,1)
@@ -87,7 +67,7 @@ KV = '''
         orientation: 'vertical'
         MDTopAppBar:
             title: "System Configuration"
-            right_action_items: [["chevron-right", lambda x: root.go_back()]]
+            right_action_items: [["menu", lambda x: root.go_back()]]
             elevation: 0
             md_bg_color: app.theme_cls.primary_color if app else (0.2,0.2,0.2,1)
         ScrollView:
@@ -454,7 +434,15 @@ class APIConfigScreen(MDScreen):
 class APIConfigApp(MDApp):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.chinese_font = FONT_NAME
+        # 借鉴 test_font_fix.py 的成功经验：直接注册字体
+        try:
+            from utils.font_utils import register_system_font
+            font_name = register_system_font()
+            print(f"[DEBUG] Config app font registered: {font_name}")
+        except Exception as e:
+            print(f"[DEBUG] Config app font registration failed: {e}")
+            font_name = 'Roboto'
+        self.font_name = font_name
     
     def build(self):
         self.theme_cls.primary_palette = "Blue"

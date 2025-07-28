@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================
 # 文件名(File): local_build_linux.sh
-# 版本(Version): v1.0.0
+# 版本(Version): v2.0.0
 # 作者(Author): 深圳王哥 & AI
 # 创建日期(Created): 2025/1/28
 # 简介(Description): 本地Linux构建脚本 - 支持在x86_linux下直接构建x86_linux应用，无需Docker
@@ -9,18 +9,9 @@
 
 set -e
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# 日志函数
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# 导入通用构建工具
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common_build_utils.sh"
 
 # 显示帮助信息
 show_help() {
@@ -51,11 +42,6 @@ EOF
 }
 
 # 全局变量
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILD_DIR="$PROJECT_ROOT/build"
-DIST_DIR="$PROJECT_ROOT/dist"
-CACHE_DIR="$PROJECT_ROOT/.build_cache"
 VERBOSE=false
 TEST_ONLY=false
 CLEAN_BUILD=false
@@ -63,51 +49,9 @@ SKIP_DEPS=false
 SKIP_APPIMAGE=false
 SKIP_DEB=false
 
-# 检测主机平台
-detect_host_platform() {
-    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
-    local arch=$(uname -m)
-    
-    case "$os" in
-        "linux")
-            if [[ "$arch" == "x86_64" ]]; then
-                echo "linux-x86_64"
-            elif [[ "$arch" == "aarch64" ]]; then
-                echo "linux-arm64"
-            else
-                echo "linux-unknown"
-            fi
-            ;;
-        *)
-            echo "unknown"
-            ;;
-    esac
-}
 
-# 检查Python环境
-check_python_environment() {
-    log_info "检查Python环境..."
-    
-    # 检查Python版本
-    local python_cmd=""
-    for cmd in python3.10 python3.9 python3; do
-        if command -v $cmd &> /dev/null; then
-            local version=$($cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
-            if [[ "$version" =~ ^3\.(9|10|11)$ ]]; then
-                python_cmd=$cmd
-                break
-            fi
-        fi
-    done
-    
-    if [[ -z "$python_cmd" ]]; then
-        log_error "未找到兼容的Python版本 (需要3.9-3.11)"
-        return 1
-    fi
-    
-    log_success "使用Python: $($python_cmd --version)"
-    return 0
-}
+
+
 
 # 检查系统依赖
 check_system_dependencies() {
@@ -188,16 +132,7 @@ install_system_dependencies() {
     log_success "系统依赖安装完成"
 }
 
-# 创建构建目录
-create_build_directories() {
-    log_info "创建构建目录..."
-    
-    mkdir -p "$BUILD_DIR"
-    mkdir -p "$DIST_DIR"
-    mkdir -p "$CACHE_DIR"
-    
-    log_success "构建目录创建完成"
-}
+
 
 # 设置Python虚拟环境
 setup_python_environment() {
@@ -206,43 +141,15 @@ setup_python_environment() {
         return 0
     fi
     
-    log_info "设置Python虚拟环境..."
-    
-    local venv_path="$PROJECT_ROOT/venv"
-    
-    # 创建虚拟环境
-    if [[ ! -d "$venv_path" ]]; then
-        python3 -m venv "$venv_path"
+    # 检查Python环境
+    local python_cmd
+    python_cmd=$(check_python_environment)
+    if [[ $? -ne 0 ]]; then
+        return 1
     fi
     
-    # 激活虚拟环境
-    source "$venv_path/bin/activate"
-    
-    # 升级pip
-    pip install --upgrade pip setuptools wheel
-    
-    # 配置pip使用国内镜像源
-    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/
-    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
-    
-    # 安装PyInstaller
-    pip install --no-cache-dir pyinstaller==5.13.2
-    
-    # 安装项目依赖
-    if [[ -f "requirements-desktop.txt" ]]; then
-        pip install -r requirements-desktop.txt
-    else
-        log_warning "未找到requirements-desktop.txt文件"
-    fi
-    
-    # 移除与PyInstaller不兼容的typing包
-    log_info "检查并移除与PyInstaller不兼容的包..."
-    if pip show typing &> /dev/null; then
-        log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
-        pip uninstall -y typing
-    fi
-    
-    log_success "Python环境设置完成"
+    # 设置Python环境
+    setup_python_environment "$python_cmd"
 }
 
 # 本地构建应用
@@ -255,47 +162,27 @@ build_application_local() {
     # 清理之前的构建
     rm -rf build dist
     
-    # 使用PyInstaller构建
-    pyinstaller \
-        --onefile \
-        --windowed \
-        --name="translate-chat" \
-        --add-data="assets:assets" \
-        --add-data="ui:ui" \
-        --add-data="utils:utils" \
-        --hidden-import=kivy \
-        --hidden-import=kivymd \
-        --hidden-import=kivymd.icon_definitions \
-        --hidden-import=kivymd.icon_definitions.md_icons \
-        --hidden-import=kivymd.uix.label \
-        --hidden-import=kivymd.uix.button \
-        --hidden-import=kivymd.uix.card \
-        --hidden-import=kivymd.uix.boxlayout \
-        --hidden-import=kivymd.uix.textfield \
-        --hidden-import=kivymd.uix.dialog \
-        --hidden-import=kivymd.uix.list \
-        --hidden-import=kivymd.uix.selectioncontrol \
-        --hidden-import=kivymd.uix.screen \
-        --hidden-import=kivymd.uix.toolbar \
-        --hidden-import=kivymd.uix.widget \
-        --hidden-import=websocket \
-        --hidden-import=aiohttp \
-        --hidden-import=cryptography \
-        --hidden-import=pyaudio \
-        --hidden-import=asr_client \
-        --hidden-import=translator \
-        --hidden-import=config_manager \
-
-        --hidden-import=lang_detect \
-        --hidden-import=hotwords \
-        --hidden-import=audio_capture \
-        --hidden-import=audio_capture_pyaudio \
-        main.py
+    # 构建PyInstaller命令
+    local pyinstaller_cmd
+    pyinstaller_cmd=$(build_pyinstaller_command)
     
-    # 复制构建产物到dist目录
-    cp dist/translate-chat "$DIST_DIR/"
-    
-    log_success "本地构建完成"
+    # 执行构建
+    if eval "$pyinstaller_cmd"; then
+        # 复制构建产物到dist目录
+        cp dist/translate-chat "$DIST_DIR/"
+        
+        # 验证构建产物
+        if validate_build_artifact "$DIST_DIR/translate-chat"; then
+            log_success "本地构建完成"
+            return 0
+        else
+            log_error "构建产物验证失败"
+            return 1
+        fi
+    else
+        log_error "PyInstaller构建失败"
+        return 1
+    fi
 }
 
 # 创建AppImage
@@ -427,37 +314,9 @@ EOF
     rm -rf "$deb_dir"
 }
 
-# 清理构建缓存
-clean_build_cache() {
-    log_info "清理构建缓存..."
-    
-    # 清理构建目录
-    rm -rf "$BUILD_DIR"
-    rm -rf "$CACHE_DIR"
-    rm -rf "$PROJECT_ROOT/build"
-    rm -rf "$PROJECT_ROOT/dist"
-    
-    # 清理PyInstaller缓存
-    rm -rf "$PROJECT_ROOT/build"
-    rm -rf "$PROJECT_ROOT/dist"
-    rm -f "$PROJECT_ROOT/translate-chat.spec"
-    
-    log_success "构建缓存清理完成"
-}
 
-# 显示构建结果
-show_build_results() {
-    log_info "构建结果:"
-    echo ""
-    
-    if [[ -d "$DIST_DIR" ]]; then
-        echo "  构建产物:"
-        ls -la "$DIST_DIR" 2>/dev/null | grep -E "(translate-chat|\.AppImage|\.deb)" || echo "    无构建产物"
-    fi
-    
-    echo ""
-    log_info "构建产物位置: $DIST_DIR"
-}
+
+
 
 # 主函数
 main() {
@@ -528,7 +387,9 @@ main() {
     fi
     
     # 检查环境
-    if ! check_python_environment; then
+    local python_cmd
+    python_cmd=$(check_python_environment)
+    if [[ $? -ne 0 ]]; then
         exit 1
     fi
     
@@ -547,7 +408,7 @@ main() {
     create_build_directories
     
     # 设置Python环境
-    setup_python_environment
+    setup_python_environment "$python_cmd"
     
     # 构建应用
     build_application_local

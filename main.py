@@ -15,9 +15,13 @@ import logging
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 from config_manager import config_manager
+from utils.font_utils import register_system_font
 
 def main():
     """主程序入口"""
+    # 注册系统字体，供全局使用
+    font_name = register_system_font()
+    os.environ["TRANSLATE_CHAT_FONT_NAME"] = font_name
     # 打印配置状态
     config_manager.print_config_status()
     

@@ -79,9 +79,7 @@ Translate-Chat/
   ├── requirements-desktop.txt     # 桌面依赖
   ├── run.sh                       # 桌面端启动脚本
   ├── translator.py                # 翻译逻辑
-  ├── assets/
-  │     └── fonts/
-  │           └── NotoSansSC-VariableFont_wght.ttf
+  
   ├── ui/
   │     ├── main_window_kivy.py    # KivyMD主界面
   │     ├── main_window_qt.py      # PyQt备用界面

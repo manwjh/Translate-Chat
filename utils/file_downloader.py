@@ -101,16 +101,14 @@ class FileDownloader:
         default_dir = self.get_default_download_dir()
         content.add_widget(
             OneLineListItem(
-                text=f"Default Directory: {default_dir}",
-                font_name='NotoSansSC'
+                text=f"Default Directory: {default_dir}"
             )
         )
         
         # 添加说明
         content.add_widget(
             OneLineListItem(
-                text="File will be saved to default download directory",
-                font_name='NotoSansSC'
+                text="File will be saved to default download directory"
             )
         )
         

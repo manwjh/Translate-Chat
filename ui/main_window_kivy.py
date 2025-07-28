@@ -6,11 +6,8 @@
 # 简介(Description): KivyMD 版主界面，移除Android支持，专注桌面端体验
 # =============================================================
 
-# 字体路径（已下载到 assets/fonts/NotoSansSC-VariableFont_wght.ttf）
+# 使用系统字体，支持多语言显示
 import os
-from kivy.core.text import LabelBase
-FONT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts/NotoSansSC-VariableFont_wght.ttf'))
-LabelBase.register(name="NotoSansSC", fn_regular=FONT_PATH)
 
 # 设置桌面端窗口大小
 os.environ["KIVY_LOG_LEVEL"] = "error"
@@ -65,13 +62,22 @@ from translator import Translator
 from hotwords import get_hotwords, add_hotword
 from utils.file_downloader import FileDownloader
 
+# 借鉴 test_font_fix.py 的成功经验：在模块级别注册字体
+try:
+    from utils.font_utils import register_system_font
+    font_name = register_system_font()
+    print(f"[DEBUG] Font registered at module level: {font_name}")
+except Exception as e:
+    print(f"[DEBUG] Font registration failed at module level: {e}")
+    font_name = 'Roboto'
+
 KV = '''
 <MDLabel>:
-    font_name: 'NotoSansSC'
+    font_name: 'SystemFont'
 <MDButtonText>:
-    font_name: 'NotoSansSC'
+    font_name: 'SystemFont'
 <MDToolbar>:
-    font_name: 'NotoSansSC'
+    font_name: 'SystemFont'
 
 <ChatBubble@MDCard>:
     orientation: 'vertical'
@@ -86,8 +92,8 @@ KV = '''
     # pos_hint: {"x": 0}  # 可选，已满宽无需定位
     MDLabel:
         text: root.corrected_text if root.corrected_text and root.corrected_text != root.original_text else root.original_text
+        font_name: 'SystemFont'
         font_style: 'Body2'
-        font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: 1, 1, 1, 1
         adaptive_height: True
@@ -99,8 +105,8 @@ KV = '''
         valign: 'middle'
     MDLabel:
         text: root.translation if root.translation and app.show_translation else ''
+        font_name: 'SystemFont'
         font_style: 'Body1'
-        font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: .7, .7, .7, 1
         adaptive_height: True
@@ -112,8 +118,8 @@ KV = '''
         valign: 'middle'
     MDLabel:
         text: root.timeout_tip if root.timeout_tip else ''
+        font_name: 'SystemFont'
         font_style: 'Body1'
-        font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: 1, 0.2, 0.2, 1
         adaptive_height: True
@@ -137,8 +143,8 @@ KV = '''
     # pos_hint: {"x": 0}
     MDLabel:
         text: root.text
+        font_name: 'SystemFont'
         font_style: 'H5'
-        font_name: 'NotoSansSC'
         italic: True
         theme_text_color: 'Custom'
         text_color: 1, 0.85, 0.2, 1
@@ -155,7 +161,7 @@ KV = '''
     md_bg_color: .12, .12, .12, 1
     MDTopAppBar:
         title: 'Translate Chat'
-        right_action_items: [["chevron-right", lambda x: app.open_api_config()]]
+        right_action_items: [["menu", lambda x: app.open_api_config()]]
         elevation: 0
         md_bg_color: app.theme_cls.primary_color
 
@@ -180,13 +186,13 @@ KV = '''
         MDTextField:
             id: hotword_input
             hint_text: ""
-            font_name: 'NotoSansSC'
+            font_name: 'SystemFont'
             size_hint_x: 0.5
             on_text_validate: root.add_hotword(self.text)
         MDLabel:
             id: hotwords_label
             text: root.hotwords_display
-            font_name: 'NotoSansSC'
+            font_name: 'SystemFont'
             size_hint_x: 1
             halign: 'left'
             valign: 'middle'
@@ -199,16 +205,20 @@ KV = '''
         spacing: dp(12)
         MDRaisedButton:
             text: 'Mic ON'
+            font_name: 'SystemFont'
             on_release: root.on_mic()
             disabled: root.asr_running
         MDRaisedButton:
             text: 'Stop'
+            font_name: 'SystemFont'
             on_release: root.on_stop()
         MDRaisedButton:
             text: 'Reset'
+            font_name: 'SystemFont'
             on_release: root.on_reset()
         MDRaisedButton:
             text: 'DNLD'
+            font_name: 'SystemFont'
             on_release: root.on_download()
         Widget:
         MDBoxLayout:
@@ -605,6 +615,10 @@ class MainScreen(Screen):
 
 class TranslateChatApp(MDApp):
     show_translation = BooleanProperty(True)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # 字体已在模块级别注册，这里只需要设置属性
+        self.font_name = font_name
     def toggle_translation(self, value):
         self.show_translation = value
     def build(self):

@@ -199,7 +199,7 @@ export LLM_API_KEY="你的密钥"
 
 ### 字体配置
 系统使用 Noto Sans SC 字体来支持中文显示：
-- **字体文件**: `assets/fonts/NotoSansSC-VariableFont_wght.ttf`
+- **字体**: 使用系统默认字体，支持多语言显示
 - **自动注册**: 应用启动时自动注册中文字体
 - **回退机制**: 如果字体文件不存在，使用系统默认字体
 
