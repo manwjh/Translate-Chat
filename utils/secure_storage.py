@@ -2,7 +2,7 @@
 # 文件名(File): secure_storage.py
 # 版本(Version): v1.0.0
 # 作者(Author): 深圳王哥 & AI
-# 创建日期(Created): 2025/1/27
+# 创建日期(Created): 2025/7/25
 # 简介(Description): 跨平台加密存储工具，支持桌面端和Android端安全存储API密钥
 # =============================================================
 
@@ -22,7 +22,8 @@ class SecureStorage:
     def __init__(self):
         self.storage_path = self._get_storage_path()
         self.fernet_key = self._get_fernet_key()
-        logger.info(f"加密存储初始化完成，存储路径: {self.storage_path}")
+        # 减少初始化信息的详细程度
+        # logger.info(f"加密存储初始化完成，存储路径: {self.storage_path}")
     
     def _get_storage_path(self):
         """获取存储路径"""
@@ -72,7 +73,7 @@ class SecureStorage:
             # 降级到固定密钥（仅用于开发测试）
             return b"TranslateChatDefaultKey32BytesLong123"
     
-    def save_config(self, config_data):
+    def save_config(self, config: dict):
         """保存加密配置"""
         try:
             # 确保目录存在
@@ -81,19 +82,17 @@ class SecureStorage:
             # 加密数据
             from cryptography.fernet import Fernet
             f = Fernet(self.fernet_key)
-            encrypted_data = f.encrypt(json.dumps(config_data, ensure_ascii=False).encode('utf-8'))
+            encrypted_data = f.encrypt(json.dumps(config, ensure_ascii=False).encode('utf-8'))
             
             # 写入文件
             with open(self.storage_path, "wb") as f:
                 f.write(encrypted_data)
             
-            logger.info(f"配置已加密保存到: {self.storage_path}")
-            return True
+            # 只保留业务相关日志，不输出底层存储状态
         except Exception as e:
-            logger.error(f"保存配置失败: {e}")
-            return False
+            logger.error(f"[存储] 配置加密保存失败: {e}")
     
-    def load_config(self):
+    def load_config(self) -> dict:
         """加载加密配置"""
         try:
             if not os.path.exists(self.storage_path):
@@ -110,10 +109,10 @@ class SecureStorage:
             decrypted_data = f.decrypt(encrypted_data)
             config = json.loads(decrypted_data.decode('utf-8'))
             
-            logger.info(f"已从加密存储加载配置: {list(config.keys())}")
+            # 只保留业务相关日志，不输出底层存储状态
             return config
         except Exception as e:
-            logger.error(f"加载配置失败: {e}")
+            logger.error(f"[存储] 加载加密配置失败: {e}")
             return {}
     
     def clear_config(self):
@@ -135,7 +134,7 @@ class SecureStorage:
             
             # 尝试加载配置验证完整性
             config = self.load_config()
-            required_keys = ['ASR_APP_KEY', 'ASR_ACCESS_KEY', 'LLM_API_KEY']
+            required_keys = ['ASR_APP_ID', 'ASR_ACCESS_KEY', 'LLM_API_KEY']
             return all(config.get(key) for key in required_keys)
         except Exception as e:
             logger.error(f"检查配置存在性失败: {e}")

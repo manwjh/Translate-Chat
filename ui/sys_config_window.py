@@ -5,13 +5,16 @@
 # File Name: sys_config_window.py
 # Version: v1.2.1
 # Author: Shenzhen Wangge & AI
-# Created: 2025/1/27
+# Created: 2025/7/25
 # Description: API configuration interface with encrypted storage support, can run independently or integrate into main program
 # =============================================================
 
 import os
 import platform
 import time
+
+# 设置Kivy日志级别，减少重复信息
+os.environ["KIVY_LOG_LEVEL"] = "error"
 from kivy.lang import Builder
 from kivy.properties import StringProperty
 from kivy.clock import Clock
@@ -35,10 +38,10 @@ def setup_fonts():
     font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/fonts/NotoSansSC-VariableFont_wght.ttf'))
     try:
         LabelBase.register('CustomFont', font_path)
-        print(f"Custom font registered: {font_path}")
+        # print(f"Custom font registered: {font_path}")
         return font_path
     except Exception as e:
-        print(f"Custom font registration failed: {e}")
+        print(f"[字体] 注册失败: {e}")
         return font_path  # Still return path for fallback
 
 FONT_NAME = setup_fonts()
@@ -85,7 +88,7 @@ KV = '''
     MDBoxLayout:
         orientation: 'vertical'
         MDTopAppBar:
-            title: "API Configuration"
+            title: "System Configuration"
             right_action_items: [["chevron-right", lambda x: root.go_back()]]
             elevation: 0
             md_bg_color: app.theme_cls.primary_color if app else (0.2,0.2,0.2,1)
@@ -130,12 +133,12 @@ KV = '''
                         size_hint_y: None
                         height: self.texture_size[1]
                     MDTextField:
-                        id: asr_app_key
-                        hint_text: "ASR_APP_KEY (Required)"
-                        helper_text: "Volcano Engine ASR application key"
+                        id: asr_app_id
+                        hint_text: "ASR_APP_ID (Required)"
+                        helper_text: "Volcano Engine ASR application ID"
                         helper_text_mode: "on_focus"
-                        text: root.asr_app_key
-                        on_text: root.asr_app_key = self.text
+                        text: root.asr_app_id
+                        on_text: root.asr_app_id = self.text
                     MDTextField:
                         id: asr_access_key
                         hint_text: "ASR_ACCESS_KEY (Required)"
@@ -143,13 +146,7 @@ KV = '''
                         helper_text_mode: "on_focus"
                         text: root.asr_access_key
                         on_text: root.asr_access_key = self.text
-                    MDTextField:
-                        id: asr_app_id
-                        hint_text: "ASR_APP_ID (Optional)"
-                        helper_text: "Volcano Engine application ID, leave empty to use default value"
-                        helper_text_mode: "on_focus"
-                        text: root.asr_app_id
-                        on_text: root.asr_app_id = self.text
+
                 # LLM configuration card
                 MDCard:
                     orientation: 'vertical'
@@ -264,9 +261,8 @@ Builder.load_string(KV)
 
 class APIConfigScreen(MDScreen):
     """API configuration interface"""
-    asr_app_key = StringProperty("")
+    asr_app_id = StringProperty("")
     asr_access_key = StringProperty("")
-    asr_app_id = StringProperty("8388344882")
     llm_api_key = StringProperty("")
     config_status_text = StringProperty("Not configured")
     
@@ -280,19 +276,18 @@ class APIConfigScreen(MDScreen):
     def load_existing_config(self):
         """Load existing configuration from environment variables and encrypted storage"""
         # Priority: load from environment variables (developer mode)
-        self.asr_app_key = os.environ.get('ASR_APP_KEY', '')
+        self.asr_app_id = os.environ.get('ASR_APP_ID', '')
         self.asr_access_key = os.environ.get('ASR_ACCESS_KEY', '')
-        self.asr_app_id = os.environ.get('ASR_APP_ID', '8388344882')
         self.llm_api_key = os.environ.get('LLM_API_KEY', '')
         
         # If environment variables are empty, try to load from encrypted storage
-        if not all([self.asr_app_key, self.asr_access_key, self.llm_api_key]):
+        if not all([self.asr_app_id, self.asr_access_key, self.llm_api_key]):
             try:
                 from config_manager import config_manager
                 if config_manager.secure_storage:
                     encrypted_config = config_manager.secure_storage.load_config()
-                    if not self.asr_app_key and encrypted_config.get('ASR_APP_KEY'):
-                        self.asr_app_key = encrypted_config['ASR_APP_KEY']
+                    if not self.asr_app_id and encrypted_config.get('ASR_APP_ID'):
+                        self.asr_app_id = encrypted_config['ASR_APP_ID']
                     if not self.asr_access_key and encrypted_config.get('ASR_ACCESS_KEY'):
                         self.asr_access_key = encrypted_config['ASR_ACCESS_KEY']
                     if not self.llm_api_key and encrypted_config.get('LLM_API_KEY'):
@@ -300,20 +295,19 @@ class APIConfigScreen(MDScreen):
                     if encrypted_config.get('ASR_APP_ID'):
                         self.asr_app_id = encrypted_config['ASR_APP_ID']
             except Exception as e:
-                print(f"Failed to load encrypted configuration: {e}")
+                print(f"[配置] 加载加密配置失败: {e}")
     
     def save_config(self):
         """Save configuration to encrypted storage"""
-        if not self.asr_app_key or not self.asr_access_key or not self.llm_api_key:
+        if not self.asr_app_id or not self.asr_access_key or not self.llm_api_key:
             self.show_dialog("Error", "Please fill in all required fields")
             return
         
         try:
             # Prepare configuration data
             config_data = {
-                'ASR_APP_KEY': self.asr_app_key,
-                'ASR_ACCESS_KEY': self.asr_access_key,
                 'ASR_APP_ID': self.asr_app_id,
+                'ASR_ACCESS_KEY': self.asr_access_key,
                 'LLM_API_KEY': self.llm_api_key
             }
             
@@ -321,10 +315,9 @@ class APIConfigScreen(MDScreen):
             from config_manager import config_manager
             if config_manager.save_config(config_data):
                 # Also set environment variables for current process (compatibility)
-                os.environ['ASR_APP_KEY'] = self.asr_app_key
+                os.environ['ASR_APP_ID'] = self.asr_app_id
                 os.environ['ASR_ACCESS_KEY'] = self.asr_access_key
                 os.environ['LLM_API_KEY'] = self.llm_api_key
-                os.environ['ASR_APP_ID'] = self.asr_app_id
                 
                 # Show success dialog and automatically close application
                 self.show_success_dialog()
@@ -334,12 +327,12 @@ class APIConfigScreen(MDScreen):
             self.show_dialog("Error", f"Failed to save configuration: {str(e)}")
     
     def show_success_dialog(self):
-        """Show success dialog and automatically close application"""
+        """Show success dialog and return to main interface"""
         if self.dialog:
             self.dialog.dismiss()
         self.dialog = MDDialog(
             title="Configuration Successful",
-            text="Configuration has been securely saved to local encrypted storage\n\nThe program will automatically start the main interface",
+            text="Configuration has been securely saved to local encrypted storage\n\nReturning to main interface...",
             buttons=[
                 MDRaisedButton(
                     text="OK",
@@ -353,13 +346,16 @@ class APIConfigScreen(MDScreen):
         """Callback after successful configuration"""
         if self.dialog:
             self.dialog.dismiss()
-        # Delay closing application to let user see success message
-        Clock.schedule_once(self.close_app, 0.5)
+        # Return to main interface
+        self.go_back()
     
-    def close_app(self, *args):
-        """Close configuration application"""
-        # Stop application
-        if hasattr(self, 'app') and self.app:
+    def go_back(self):
+        """Return to main interface"""
+        # Switch back to main interface by main program ScreenManager
+        if self.parent and hasattr(self.parent, 'current'):
+            self.parent.current = 'main'
+        # If running independently, close the app
+        elif hasattr(self, 'app') and self.app:
             self.app.stop()
         else:
             # If no app reference, exit directly
@@ -371,10 +367,10 @@ class APIConfigScreen(MDScreen):
         status = []
         
         # Check environment variables
-        if os.environ.get('ASR_APP_KEY'):
-            status.append("[Success] ASR_APP_KEY: Environment variable set")
+        if os.environ.get('ASR_APP_ID'):
+            status.append("[Success] ASR_APP_ID: Environment variable set")
         else:
-            status.append("[Failed] ASR_APP_KEY: Environment variable not set")
+            status.append("[Failed] ASR_APP_ID: Environment variable not set")
         
         if os.environ.get('ASR_ACCESS_KEY'):
             status.append("[Success] ASR_ACCESS_KEY: Environment variable set")
@@ -393,8 +389,8 @@ class APIConfigScreen(MDScreen):
                 encrypted_config = config_manager.secure_storage.load_config()
                 if encrypted_config:
                     status.append("[Success] Encrypted storage: Contains configuration data")
-                    if encrypted_config.get('ASR_APP_KEY'):
-                        status.append("  - ASR_APP_KEY: Saved")
+                    if encrypted_config.get('ASR_APP_ID'):
+                        status.append("  - ASR_APP_ID: Saved")
                     if encrypted_config.get('ASR_ACCESS_KEY'):
                         status.append("  - ASR_ACCESS_KEY: Saved")
                     if encrypted_config.get('LLM_API_KEY'):
@@ -416,7 +412,7 @@ class APIConfigScreen(MDScreen):
             if config_manager.validate_config():
                 source = config_manager._get_config_source()
                 self.config_status_text = f"[Success] Configuration complete, source: {source}"
-            elif any([self.asr_app_key, self.asr_access_key, self.llm_api_key]):
+            elif any([self.asr_app_id, self.asr_access_key, self.llm_api_key]):
                 self.config_status_text = "[Warning] Configuration incomplete, please supplement missing configuration items"
             else:
                 self.config_status_text = "[Failed] Not configured, please fill in API key information"
@@ -449,8 +445,13 @@ class APIConfigScreen(MDScreen):
         # Switch back to main interface by main program ScreenManager
         if self.parent and hasattr(self.parent, 'current'):
             self.parent.current = 'main'
-        # No operation when running independently
-        pass
+        # If running independently, close the app
+        elif hasattr(self, 'app') and self.app:
+            self.app.stop()
+        else:
+            # If no app reference, exit directly
+            import sys
+            sys.exit(0)
 
 class APIConfigApp(MDApp):
     def __init__(self, **kwargs):

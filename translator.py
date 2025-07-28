@@ -136,9 +136,10 @@ if __name__ == "__main__":
         ]
         for txt in sample_texts:
             result = await t.translate(txt, src_lang="zh", tgt_lang="en")
-            print(f"原文: {txt}")
-            print("纠错:", result["corrected"])
-            print("翻译:", result["translation"])
-            print("----")
+                    # 移除翻译过程的详细打印，避免信息过多
+        # print(f"原文: {txt}")
+        # print("纠错:", result["corrected"])
+        # print("翻译:", result["translation"])
+        # print("----")
 
     asyncio.run(test())

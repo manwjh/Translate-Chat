@@ -243,7 +243,7 @@ buildozer android logcat
 
 ## 更新日志
 
-### v2.0.0 (2025/1/27)
+### v2.0.0 (2025/7/25)
 - 统一macOS和Ubuntu环境配置
 - 解决Python 3.11兼容性问题
 - 锁定所有关键依赖版本

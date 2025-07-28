@@ -68,7 +68,7 @@ class AudioStream:
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"音频处理错误: {e}")
+                print(f"[音频] 处理错误: {e}")
                 continue
 
     def on_audio(self, data):

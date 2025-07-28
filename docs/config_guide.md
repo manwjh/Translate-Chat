@@ -3,7 +3,7 @@
 **文件名(File):** config_guide.md  
 **版本(Version):** v1.0.0  
 **作者(Author):** 深圳王哥 & AI  
-**创建日期(Created):** 2025/1/27  
+**创建日期(Created):** 2025/7/25  
 **简介(Description):** 详细的API配置指南，支持多平台环境变量配置
 
 ---
@@ -58,16 +58,14 @@ scripts\setup_env.bat -c
 #### macOS/Linux/Android (Bash/Zsh)
 ```bash
 # 临时设置（当前会话有效）
-export ASR_APP_KEY="你的ASR_APP_KEY"
+export ASR_APP_ID="你的ASR_APP_ID"
 export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
 export LLM_API_KEY="你的LLM_API_KEY"
-export ASR_APP_ID="你的ASR_APP_ID"  # 可选
 
 # 永久设置（添加到shell配置文件）
-echo 'export ASR_APP_KEY="你的ASR_APP_KEY"' >> ~/.bashrc
+echo 'export ASR_APP_ID="你的ASR_APP_ID"' >> ~/.bashrc
 echo 'export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"' >> ~/.bashrc
 echo 'export LLM_API_KEY="你的LLM_API_KEY"' >> ~/.bashrc
-echo 'export ASR_APP_ID="你的ASR_APP_ID"' >> ~/.bashrc
 
 # 重新加载配置
 source ~/.bashrc
@@ -76,31 +74,27 @@ source ~/.bashrc
 #### Windows (PowerShell)
 ```powershell
 # 临时设置（当前会话有效）
-$env:ASR_APP_KEY="你的ASR_APP_KEY"
+$env:ASR_APP_ID="你的ASR_APP_ID"
 $env:ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
 $env:LLM_API_KEY="你的LLM_API_KEY"
-$env:ASR_APP_ID="你的ASR_APP_ID"  # 可选
 
 # 永久设置（用户级别）
-[Environment]::SetEnvironmentVariable("ASR_APP_KEY", "你的ASR_APP_KEY", "User")
+[Environment]::SetEnvironmentVariable("ASR_APP_ID", "你的ASR_APP_ID", "User")
 [Environment]::SetEnvironmentVariable("ASR_ACCESS_KEY", "你的ASR_ACCESS_KEY", "User")
 [Environment]::SetEnvironmentVariable("LLM_API_KEY", "你的LLM_API_KEY", "User")
-[Environment]::SetEnvironmentVariable("ASR_APP_ID", "你的ASR_APP_ID", "User")
 ```
 
 #### Windows (CMD)
 ```cmd
 # 临时设置（当前会话有效）
-set ASR_APP_KEY=你的ASR_APP_KEY
+set ASR_APP_ID=你的ASR_APP_ID
 set ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 set LLM_API_KEY=你的LLM_API_KEY
-set ASR_APP_ID=你的ASR_APP_ID
 
 # 永久设置（用户级别）
-setx ASR_APP_KEY "你的ASR_APP_KEY"
+setx ASR_APP_ID "你的ASR_APP_ID"
 setx ASR_ACCESS_KEY "你的ASR_ACCESS_KEY"
 setx LLM_API_KEY "你的LLM_API_KEY"
-setx ASR_APP_ID "你的ASR_APP_ID"
 ```
 
 ### 1.3 Android 特殊配置
@@ -109,12 +103,12 @@ setx ASR_APP_ID "你的ASR_APP_ID"
 
 ```bash
 # Termux 环境
-export ASR_APP_KEY="你的ASR_APP_KEY"
+export ASR_APP_ID="你的ASR_APP_ID"
 export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
 export LLM_API_KEY="你的LLM_API_KEY"
 
 # 添加到 ~/.bashrc 实现永久设置
-echo 'export ASR_APP_KEY="你的ASR_APP_KEY"' >> ~/.bashrc
+echo 'export ASR_APP_ID="你的ASR_APP_ID"' >> ~/.bashrc
 echo 'export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"' >> ~/.bashrc
 echo 'export LLM_API_KEY="你的LLM_API_KEY"' >> ~/.bashrc
 ```
@@ -133,7 +127,7 @@ python3 setup_config.py
 bash scripts/setup_env.sh -i
 
 # 方式三：手动设置环境变量
-export ASR_APP_KEY="你的ASR_APP_KEY"
+export ASR_APP_ID="你的ASR_APP_ID"
 export ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
 export LLM_API_KEY="你的LLM_API_KEY"
 ```
@@ -144,7 +138,6 @@ export LLM_API_KEY="你的LLM_API_KEY"
 # 火山ASR配置
 ASR_WS_URL = "wss://openspeech.bytedance.com/api/v3/sauc/bigmodel_async"
 ASR_APP_ID = "你的ASR_APP_ID"
-ASR_APP_KEY = "你的ASR_APP_KEY"
 ASR_ACCESS_KEY = "你的ASR_ACCESS_KEY"
 ASR_SAMPLE_RATE = 16000
 
@@ -175,14 +168,14 @@ scripts\setup_env.bat -c
 
 ```bash
 # 检查环境变量
-echo $ASR_APP_KEY
+echo $ASR_APP_ID
 echo $ASR_ACCESS_KEY
 echo $LLM_API_KEY
 
 # 或者在Python中验证
 python3 -c "
 import os
-print('ASR_APP_KEY:', os.environ.get('ASR_APP_KEY', '未设置'))
+print('ASR_APP_ID:', os.environ.get('ASR_APP_ID', '未设置'))
 print('ASR_ACCESS_KEY:', os.environ.get('ASR_ACCESS_KEY', '未设置'))
 print('LLM_API_KEY:', os.environ.get('LLM_API_KEY', '未设置'))
 "
@@ -233,11 +226,11 @@ class ConfigManager:
 ```python
 # 方式1: 通过配置管理器（推荐）
 from config_manager import config_manager
-value = config_manager.get('ASR_APP_KEY')
+value = config_manager.get('ASR_APP_ID')
 
 # 方式2: 直接导入（向后兼容）
-from config_manager import ASR_APP_KEY
-# ASR_APP_KEY实际上是从config_manager.config中获取的
+from config_manager import ASR_APP_ID
+# ASR_APP_ID实际上是从config_manager.config中获取的
 ```
 
 ### 存储位置说明

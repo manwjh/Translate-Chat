@@ -2,7 +2,7 @@
 # Translate Chat - 通用构建工具脚本
 # 文件名(File): common_build_utils.sh
 # 版本(Version): v1.0.0
-# 创建日期(Created): 2025/1/27
+# 创建日期(Created): 2025/7/25
 # 简介(Description): 通用构建工具函数，支持macOS和Ubuntu环境
 
 # 颜色定义

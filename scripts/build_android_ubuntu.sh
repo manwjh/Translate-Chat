@@ -2,7 +2,7 @@
 # Translate Chat - Ubuntu Android 打包自动化脚本
 # 文件名(File): build_android_ubuntu.sh
 # 版本(Version): v2.0.0
-# 创建日期(Created): 2025/1/27
+# 创建日期(Created): 2025/7/25
 # 简介(Description): Ubuntu环境下Android APK自动化打包脚本，统一环境配置，解决兼容性问题
 
 set -e

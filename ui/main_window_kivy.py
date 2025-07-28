@@ -78,24 +78,11 @@ KV = '''
     elevation: 0
     # pos_hint: {"x": 0}  # 可选，已满宽无需定位
     MDLabel:
-        text: root.original_text
+        text: root.corrected_text if root.corrected_text and root.corrected_text != root.original_text else root.original_text
         font_style: 'Body2'
         font_name: 'NotoSansSC'
         theme_text_color: 'Custom'
         text_color: 1, 1, 1, 1
-        adaptive_height: True
-        size_hint_x: 1
-        size_hint_y: None
-        height: self.texture_size[1]
-        text_size: self.width, None
-        halign: 'left'
-        valign: 'middle'
-    MDLabel:
-        text: root.corrected_text if root.corrected_text and root.corrected_text != root.original_text else ''
-        font_style: 'Body1'
-        font_name: 'NotoSansSC'
-        theme_text_color: 'Custom'
-        text_color: 0.8, 0.9, 0.8, 1
         adaptive_height: True
         size_hint_x: 1
         size_hint_y: None
@@ -265,7 +252,7 @@ class MainWidget(MDBoxLayout):
             with open(hotwords_path, 'w', encoding='utf-8') as f:
                 f.write('[]')
         except Exception as e:
-            print(f"[WARN] Failed to clear hotwords.json: {e}")
+            print(f"[热词] 清空hotwords.json失败: {e}")
         super().__init__(**kwargs)
         self.final_texts = []
         self.final_bubbles = []
@@ -334,7 +321,7 @@ class MainWidget(MDBoxLayout):
         try:
             asyncio.run(self._asr_flow())
         except Exception as e:
-            print("ASR error:", e)
+            print(f"[ASR] 错误: {e}")
             # 确保异常时也能安全切回主线程修改UI
             Clock.schedule_once(lambda dt: self.set_asr_running(False))
 
@@ -409,7 +396,7 @@ class MainWidget(MDBoxLayout):
             try:
                 await asr.run(audio.audio_stream_generator())
             except Exception as e:
-                print("ASR error:", e)
+                print(f"[ASR] 错误: {e}")
         self.set_asr_running(False)
         self.mic_btn_text = 'Mic ON'
 
@@ -422,9 +409,10 @@ class MainWidget(MDBoxLayout):
     @mainthread
     def _show_asr_utterances(self, utterances):
         self._asr_call_count += 1
-        print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
+        # 移除过于详细的调试信息，只在需要时启用
+        # print(f"[DEBUG] _show_asr_utterances call #{self._asr_call_count}, utterances count: {len(utterances)}")
         chat_area = self.ids.chat_area
-        print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
+        # print(f"[DEBUG] chat_area children before: {len(chat_area.children)}")
         # 1. 固化分句：增量添加到 final_bubbles，历史内容不丢失
         for utt in utterances:
             original_text = utt.get('text', '')
@@ -454,7 +442,7 @@ class MainWidget(MDBoxLayout):
         scrollview = chat_area.parent
         if chat_area.height > scrollview.height:
             self.scroll_to_bottom()
-        print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
+        # print(f"[DEBUG] _show_asr_utterances end, chat_area children: {len(chat_area.children)}")
 
     def create_bubble(self, original_text, corrected_text, translation, timeout_tip):
         return ChatBubble(
@@ -474,14 +462,12 @@ class MainWidget(MDBoxLayout):
         if 'ctrl' in modifiers and codepoint in ('c', 'C'):
             for bubble in self.final_bubbles:
                 if getattr(bubble, 'selected', False):
-                    # 复制内容：原文 + 纠错 + 翻译
-                    copy_text = bubble.original_text
-                    if bubble.corrected_text and bubble.corrected_text != bubble.original_text:
-                        copy_text += '\n纠错: ' + bubble.corrected_text
+                    # 复制内容：纠错后的文本（或原文）+ 翻译
+                    copy_text = bubble.corrected_text if bubble.corrected_text and bubble.corrected_text != bubble.original_text else bubble.original_text
                     if bubble.translation:
                         copy_text += '\n翻译: ' + bubble.translation
                     Clipboard.copy(copy_text)
-                    print("已复制到剪贴板:", copy_text)
+                    print(f"[复制] 已复制到剪贴板: {copy_text}")
                     break
 
 class ChatBubble(HoverBehavior, MDCard):

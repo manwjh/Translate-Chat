@@ -22,7 +22,8 @@ ASR_SAMPLE_RATE = config_manager.get('ASR_SAMPLE_RATE')
 # 新增导入
 #from speaker_change_detector import SpeakerChangeDetector
 
-logging.basicConfig(level=logging.INFO)
+# 禁用日志配置，避免重复输出
+# logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 火山ASR协议相关常量
@@ -98,7 +99,7 @@ class RequestBuilder:
             "X-Api-Resource-Id": "volc.bigasr.sauc.duration",
             "X-Api-Request-Id": reqid,
             "X-Api-Access-Key": config_manager.get('ASR_ACCESS_KEY'),
-            "X-Api-App-Key": config_manager.get('ASR_APP_KEY')
+            "X-Api-App-Key": config_manager.get('ASR_APP_ID')
         }
 
     @staticmethod
@@ -257,12 +258,12 @@ class VolcanoASRClientAsync:
         headers = RequestBuilder.new_auth_headers()
         self.conn = await self.session.ws_connect(ASR_WS_URL, headers=headers)
         self.running = True
-        logger.info(f"Connected to {ASR_WS_URL}")
+        # logger.info(f"Connected to {ASR_WS_URL}")
 
     async def send_full_client_request(self):
         request = RequestBuilder.new_full_client_request(self.seq)
         await self.conn.send_bytes(request)
-        logger.info(f"Sent full client request with seq: {self.seq}")
+        # logger.info(f"Sent full client request with seq: {self.seq}")
         self.seq += 1
 
     async def send_audio_stream(self, audio_generator):
@@ -282,7 +283,7 @@ class VolcanoASRClientAsync:
             if count == 1 or is_last:
                 request = RequestBuilder.new_audio_only_request(self.seq, buf, is_last=is_last)
                 await self.conn.send_bytes(request)
-                logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
+                # logger.info(f"Sent audio chunk seq={self.seq} size={len(request)} bytes last={is_last} ")
                 if not is_last:
                     self.seq += 1
                 buf = b""
@@ -296,13 +297,9 @@ class VolcanoASRClientAsync:
         async for msg in self.conn:
             if msg.type == aiohttp.WSMsgType.BINARY:
                 response = ResponseParser.parse_response(msg.data)
-                # 仅当包含有效text时打印payload_msg的json内容
                 if response.payload_msg:
                     result = response.payload_msg.get('result', {})
                     text = result.get('text', '')
-                    #if text:
-                    #    import json
-                    #    print("[ASR JSON]", json.dumps(response.payload_msg, ensure_ascii=False))
                 if response.code != 0:
                     reason = get_asr_error_reason(response.code)
                     logger.error(f"ASR错误码: {response.code}, 原因: {reason}")
@@ -316,7 +313,6 @@ class VolcanoASRClientAsync:
                 logger.error(f"WebSocket error: {msg.data}")
                 break
             elif msg.type == aiohttp.WSMsgType.CLOSED:
-                logger.info("WebSocket connection closed")
                 break
 
     async def run(self, audio_generator):

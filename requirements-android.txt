@@ -1,7 +1,7 @@
 # Android 专用依赖文件 - 锁定版本确保兼容性
 # 文件名(File): requirements-android.txt
 # 版本(Version): v1.0.0
-# 创建日期(Created): 2025/1/27
+# 创建日期(Created): 2025/7/25
 # 简介(Description): Android打包专用依赖，解决Python 3.10+兼容性问题
 
 # 核心框架 - 锁定版本

@@ -3,7 +3,7 @@
 **文件名(File):** README.md  
 **版本(Version):** v0.1.3  
 **作者(Author):** 深圳王哥 & AI  
-**创建日期(Created):** 2025/1/27  
+**创建日期(Created):** 2025/7/25  
 **简介(Description):** 基于火山引擎ASR和LLM的实时语音翻译工具，支持多语言互译
 
 ---
@@ -29,7 +29,7 @@ Translate Chat 是一款跨平台（macOS、Linux、Android）轻量级、基于
 
 ## 更新日志 / Changelog
 
-### v0.1.1 (2025/1/27)
+### v0.1.1 (2025/7/25)
 - ✨ 新增 Ubuntu 和 macOS 自动化打包脚本
 - 📚 新增开发文档和打包说明
 - 🔧 优化 buildozer 配置
@@ -121,7 +121,7 @@ python3 setup_config.py
 bash scripts/setup_env.sh -i
 
 # 方式三：手动设置环境变量
-export ASR_APP_KEY=你的ASR_APP_KEY
+export ASR_APP_ID=你的ASR_APP_ID
 export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 export LLM_API_KEY=你的LLM_API_KEY
 
@@ -239,26 +239,23 @@ scripts\setup_env.bat -i
 
 **macOS/Linux/Android:**
 ```bash
-export ASR_APP_KEY=你的ASR_APP_KEY
+export ASR_APP_ID=你的ASR_APP_ID
 export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 export LLM_API_KEY=你的LLM_API_KEY
-export ASR_APP_ID=你的ASR_APP_ID  # 可选
 ```
 
 **Windows (PowerShell):**
 ```powershell
-$env:ASR_APP_KEY="你的ASR_APP_KEY"
+$env:ASR_APP_ID="你的ASR_APP_ID"
 $env:ASR_ACCESS_KEY="你的ASR_ACCESS_KEY"
 $env:LLM_API_KEY="你的LLM_API_KEY"
-$env:ASR_APP_ID="你的ASR_APP_ID"  # 可选
 ```
 
 **Windows (CMD):**
 ```cmd
-set ASR_APP_KEY=你的ASR_APP_KEY
+set ASR_APP_ID=你的ASR_APP_ID
 set ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 set LLM_API_KEY=你的LLM_API_KEY
-set ASR_APP_ID=你的ASR_APP_ID  # 可选
 ```
 
 
@@ -295,7 +292,7 @@ scripts\setup_env.bat -c
 ```python
 # 通过配置管理器访问
 from config_manager import config_manager
-value = config_manager.get('ASR_APP_KEY')
+value = config_manager.get('ASR_APP_ID')
 ```
 
 #### 存储位置说明

@@ -6,8 +6,14 @@
 # 简介(Description): 程序主入口，统一使用 Kivy 版主界面，支持环境变量和加密存储配置
 # =============================================================
 
-import sys
 import os
+os.environ["KIVY_LOG_LEVEL"] = "error"  # 只显示error，完全禁止info级别
+os.environ["KIVY_NO_CONSOLELOG"] = "1"  # 禁止Kivy控制台日志，避免重复
+
+import sys
+import logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+
 from config_manager import config_manager
 
 def main():
@@ -17,13 +23,7 @@ def main():
     
     # 验证配置
     if not config_manager.validate_config():
-        print("检测到配置缺失，正在启动配置界面...")
-        print()
-        print("配置说明：")
-        print("1. 请填写火山引擎API密钥信息")
-        print("2. 配置将安全保存到本地加密存储")
-        print("3. 配置完成后程序将自动启动")
-        print()
+        print("[配置] 检测到配置缺失，正在启动配置界面...")
         
         # 自动启动配置界面
         try:
@@ -33,18 +33,16 @@ def main():
             
             # 配置完成后重新验证
             if config_manager.validate_config():
-                print("配置完成，正在启动主程序...")
+                print("[配置] 配置完成，正在启动主程序...")
                 from ui.main_window_kivy import run_app
                 run_app()
             else:
-                print("配置验证失败，程序退出")
+                print("[配置] 配置验证失败，程序退出")
                 sys.exit(1)
                 
         except Exception as e:
-            print(f"启动配置界面失败: {e}")
-            print()
-            print("请手动运行配置程序：")
-            print("python3 setup_config.py")
+            print(f"[配置] 启动配置界面失败: {e}")
+            print("[配置] 请手动运行配置程序：python3 setup_config.py")
             sys.exit(1)
     else:
         # 配置完整，直接启动应用

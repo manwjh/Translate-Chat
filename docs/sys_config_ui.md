@@ -3,7 +3,7 @@
 **文件名(File):** api_config_ui.md  
 **版本(Version):** v1.0.0  
 **作者(Author):** 深圳王哥 & AI  
-**创建日期(Created):** 2025/1/27  
+**创建日期(Created):** 2025/7/25  
 **简介(Description):** API配置图形界面的详细使用说明
 
 ---
@@ -24,13 +24,13 @@ API配置界面采用现代化的Material Design风格，支持桌面和手机�
 │  ┌─────────────────────────────────┐ │
 │  │      语音识别 (ASR) 配置         │ │
 │  │  ┌─────────────────────────────┐ │ │
-│  │  │ ASR_APP_KEY (必填)          │ │ │
+│  │  │ ASR_APP_ID (必填)           │ │ │
 │  │  └─────────────────────────────┘ │ │
 │  │  ┌─────────────────────────────┐ │ │
 │  │  │ ASR_ACCESS_KEY (必填)        │ │ │
 │  │  └─────────────────────────────┘ │ │
 │  │  ┌─────────────────────────────┐ │ │
-│  │  │ ASR_APP_ID (可选)            │ │ │
+
 │  │  └─────────────────────────────┘ │ │
 │  └─────────────────────────────────┘ │
 │  ┌─────────────────────────────────┐ │
@@ -61,9 +61,8 @@ API配置界面采用现代化的Material Design风格，支持桌面和手机�
 ### 1. 配置输入区域
 
 #### ASR配置组
-- **ASR_APP_KEY**: 火山引擎ASR应用密钥（必填）
+- **ASR_APP_ID**: 火山引擎ASR应用ID（必填）
 - **ASR_ACCESS_KEY**: 火山引擎访问密钥（必填）
-- **ASR_APP_ID**: 火山引擎应用ID（可选，有默认值）
 
 #### LLM配置组
 - **LLM_API_KEY**: 大语言模型API密钥（必填）
@@ -105,9 +104,8 @@ python3 setup_api.py
 
 ### 第二步：填写API密钥
 1. 在ASR配置区域填写：
-   - ASR_APP_KEY
+   - ASR_APP_ID
    - ASR_ACCESS_KEY
-   - ASR_APP_ID（可选）
 
 2. 在LLM配置区域填写：
    - LLM_API_KEY
@@ -160,7 +158,7 @@ python3 setup_api.py
 ```
 错误: 请填写所有必填项
 ```
-**解决**: 确保ASR_APP_KEY、ASR_ACCESS_KEY、LLM_API_KEY都已填写
+**解决**: 确保ASR_APP_ID、ASR_ACCESS_KEY、LLM_API_KEY都已填写
 
 #### 3. 保存失败
 ```
@@ -187,7 +185,7 @@ bash scripts/setup_env.sh -i
 
 ### 2. 手动设置环境变量
 ```bash
-export ASR_APP_KEY="你的密钥"
+export ASR_APP_ID="你的密钥"
 export ASR_ACCESS_KEY="你的密钥"
 export LLM_API_KEY="你的密钥"
 ```

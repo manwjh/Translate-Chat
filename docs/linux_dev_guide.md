@@ -57,7 +57,7 @@ pip install -r requirements-desktop.txt -i https://pypi.tuna.tsinghua.edu.cn/sim
 - 或设置环境变量（推荐）
 
 ```bash
-export ASR_APP_KEY=你的ASR_APP_KEY
+export ASR_APP_ID=你的ASR_APP_ID
 export ASR_ACCESS_KEY=你的ASR_ACCESS_KEY
 export LLM_API_KEY=你的LLM_API_KEY
 ```

@@ -70,11 +70,11 @@
 
 ---
 
-## API配置界面说明 / API Configuration Screen
+## 系统配置界面说明 / System Configuration Screen
 
 - 通过主界面右上角“chevron-right”按钮进入
 - 支持配置火山引擎ASR和LLM的API密钥，安全加密本地存储
-- 配置项包括：ASR_APP_KEY、ASR_ACCESS_KEY、ASR_APP_ID（可选）、LLM_API_KEY
+- 配置项包括：ASR_APP_ID、ASR_ACCESS_KEY、LLM_API_KEY
 - 提供保存、检测配置按钮，支持一键检测当前配置状态
 - 配置成功后自动返回主界面
 - 详细用法见界面内帮助说明
