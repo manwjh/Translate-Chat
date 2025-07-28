@@ -57,16 +57,9 @@ LINUX_DEPS=(
     "libpulse0_15.99.1+dfsg1-1ubuntu2.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/main/p/pulseaudio/libpulse0_15.99.1+dfsg1-1ubuntu2.1_amd64.deb"
     "libjack-jackd2-0_1.9.20~dfsg-1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/main/j/jackd2/libjack-jackd2-0_1.9.20~dfsg-1_amd64.deb"
     
-    # FFmpeg库
-    "libavcodec58_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavcodec58_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libavformat58_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavformat58_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libavdevice58_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavdevice58_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libavutil56_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavutil56_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libswscale5_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libswscale5_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libavfilter7_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavfilter7_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libavresample4_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libavresample4_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libpostproc55_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libpostproc55_4.4.2-0ubuntu0.22.04.1_amd64.deb"
-    "libswresample3_4.4.2-0ubuntu0.22.04.1_amd64.deb|http://archive.ubuntu.com/ubuntu/pool/universe/f/ffmpeg/libswresample3_4.4.2-0ubuntu0.22.04.1_amd64.deb"
+    # 音频处理库（保留必要的音频库）
+    # 注意：移除了FFmpeg相关依赖，因为resemblyzer通常不需要完整的FFmpeg
+    # 如果后续发现需要，可以重新添加
 )
 
 # 下载系统依赖包
@@ -252,16 +245,13 @@ cat > dependencies.txt << 'EOF'
 - libpulse0_15.99.1+dfsg1-1ubuntu2.1_amd64.deb
 - libjack-jackd2-0_1.9.20~dfsg-1_amd64.deb
 
-### FFmpeg库
-- libavcodec58_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libavformat58_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libavdevice58_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libavutil56_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libswscale5_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libavfilter7_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libavresample4_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libpostproc55_4.4.2-0ubuntu0.22.04.1_amd64.deb
-- libswresample3_4.4.2-0ubuntu0.22.04.1_amd64.deb
+### 音频处理库（已优化）
+- libportaudio2_19.7.0-1_amd64.deb
+- libasound2_1.2.4-1.1ubuntu4_amd64.deb
+- libpulse0_15.99.1+dfsg1-1ubuntu2.1_amd64.deb
+- libjack-jackd2-0_1.9.20~dfsg-1_amd64.deb
+
+**注意**: 已移除FFmpeg相关依赖，因为resemblyzer通常不需要完整的FFmpeg库
 
 ## Python依赖包 (Python 3.9)
 - kivy-2.3.0-cp39-cp39-linux_x86_64.whl

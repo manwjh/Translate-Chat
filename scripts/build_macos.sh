@@ -224,7 +224,6 @@ create_macos_app() {
     # 创建应用包结构
     mkdir -p "$app_path/Contents/MacOS"
     mkdir -p "$app_path/Contents/Resources"
-    mkdir -p "$app_path/Contents/Info.plist"
     
     # 复制可执行文件
     cp "$dist_dir/translate-chat" "$app_path/Contents/MacOS/"

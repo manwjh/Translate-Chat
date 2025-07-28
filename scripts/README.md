@@ -86,7 +86,7 @@ scripts/
 - 基础库: libssl3, libffi8
 - 图像处理: libjpeg8, libpng16, libfreetype6
 - 音频库: libportaudio2, libasound2, libpulse0
-- FFmpeg库: libavcodec58, libavformat58等
+- 音频处理库: libportaudio2, libasound2等（已移除FFmpeg依赖）
 
 **使用方法**:
 ```bash

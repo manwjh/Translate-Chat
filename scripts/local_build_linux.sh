@@ -177,7 +177,7 @@ install_system_dependencies() {
         libjack-jackd2-dev \
         libavcodec-dev \
         libavformat-dev \
-        libavdevice-dev \
+        # libavdevice-dev \  # 移除FFmpeg设备库依赖
         libavutil-dev \
         libswscale-dev \
         libavfilter-dev \

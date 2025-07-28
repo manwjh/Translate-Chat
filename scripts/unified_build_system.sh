@@ -238,7 +238,7 @@ RUN apt-get update && apt-get install -y \\
     libjack-jackd2-dev \\
     libavcodec-dev \\
     libavformat-dev \\
-    libavdevice-dev \\
+    # libavdevice-dev \\  # 移除FFmpeg设备库依赖
     libavutil-dev \\
     libswscale-dev \\
     libavfilter-dev \\
