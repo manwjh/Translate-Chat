@@ -92,11 +92,6 @@ build_application_local() {
         return 1
     fi
     
-    # 创建虚拟环境
-    log_info "创建Python虚拟环境..."
-    $python_cmd -m venv venv
-    source venv/bin/activate
-    
     # 设置Python环境
     setup_python_environment "$python_cmd"
     
@@ -112,11 +107,11 @@ build_application_local() {
     log_info "使用PyInstaller构建应用..."
     if eval "$pyinstaller_cmd"; then
         # 复制构建产物
-        if [[ -f "dist/translate-chat" ]]; then
-            cp "dist/translate-chat" "$dist_dir/"
+        if [[ -d "dist/translate-chat" ]]; then
+            cp -r "dist/translate-chat" "$dist_dir/"
             
             # 验证构建产物
-            if validate_build_artifact "$dist_dir/translate-chat"; then
+            if validate_build_artifact "$dist_dir/translate-chat/translate-chat"; then
                 log_success "macOS应用构建成功"
                 return 0
             else
@@ -142,8 +137,8 @@ create_macos_app() {
     log_info "创建macOS应用包..."
     
     # 检查可执行文件是否存在
-    if [[ ! -f "$dist_dir/translate-chat" ]]; then
-        log_error "可执行文件不存在: $dist_dir/translate-chat"
+    if [[ ! -f "$dist_dir/translate-chat/translate-chat" ]]; then
+        log_error "可执行文件不存在: $dist_dir/translate-chat/translate-chat"
         return 1
     fi
     
@@ -152,7 +147,7 @@ create_macos_app() {
     mkdir -p "$app_path/Contents/Resources"
     
     # 复制可执行文件
-    cp "$dist_dir/translate-chat" "$app_path/Contents/MacOS/"
+    cp "$dist_dir/translate-chat/translate-chat" "$app_path/Contents/MacOS/"
     
     # 创建Info.plist（确保先删除可能存在的目录）
     rm -rf "$app_path/Contents/Info.plist"

@@ -16,7 +16,7 @@ source "$SCRIPT_DIR/common_build_utils.sh"
 # 显示帮助信息
 show_help() {
     cat << EOF
-本地Linux构建脚本 v1.0.0
+Linux本地构建脚本 v1.0.0
 
 用法: $0 [选项]
 
@@ -30,13 +30,12 @@ show_help() {
     --no-deb            跳过deb包创建
 
 示例:
-    $0                   # 完整构建
+    $0                   # 构建Linux应用
     $0 -c               # 清理构建缓存
     $0 -t               # 测试环境
     $0 --no-appimage    # 不创建AppImage
 
-支持的主机平台:
-    - Linux (x86_64)    -> 构建 x86_64 Linux应用
+注意: 此脚本仅构建当前Linux架构的应用
 
 EOF
 }
@@ -60,24 +59,32 @@ check_system_dependencies() {
     local missing_deps=()
     
     # 检查基础工具
-    for cmd in pip3 virtualenv; do
+    for cmd in python3 pip3; do
         if ! command -v $cmd &> /dev/null; then
             missing_deps+=($cmd)
         fi
     done
     
-    # 检查系统库
-    local libs=("libssl" "libffi" "libjpeg" "libpng" "libfreetype" "libportaudio" "libasound")
-    for lib in "${libs[@]}"; do
-        if ! ldconfig -p | grep -q "$lib"; then
-            missing_deps+=("$lib-dev")
+    # 检查必要的系统工具
+    for tool in git curl wget; do
+        if ! command -v $tool &> /dev/null; then
+            log_error "缺少必要工具: $tool"
+            return 1
         fi
     done
     
+    # 检查关键系统库（简化检查）
+    if ! ldconfig -p | grep -q "libssl"; then
+        missing_deps+=("libssl-dev")
+    fi
+    
+    if ! ldconfig -p | grep -q "libportaudio"; then
+        missing_deps+=("portaudio19-dev")
+    fi
+    
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         log_warning "缺少以下依赖: ${missing_deps[*]}"
-        log_info "请运行以下命令安装依赖:"
-        echo "sudo apt-get update && sudo apt-get install -y ${missing_deps[*]}"
+        log_info "将尝试自动安装依赖..."
         return 1
     fi
     
@@ -113,21 +120,9 @@ install_system_dependencies() {
         libjpeg-dev \
         libpng-dev \
         libfreetype6-dev \
-        libgif-dev \
         libportaudio2 \
         portaudio19-dev \
-        libasound2-dev \
-        libpulse-dev \
-        libjack-jackd2-dev \
-        libavcodec-dev \
-        libavformat-dev \
-        # libavdevice-dev \  # 移除FFmpeg设备库依赖
-        libavutil-dev \
-        libswscale-dev \
-        libavfilter-dev \
-        libavresample-dev \
-        libpostproc-dev \
-        libswresample-dev
+        libasound2-dev
     
     log_success "系统依赖安装完成"
 }
@@ -148,35 +143,92 @@ setup_python_environment() {
         return 1
     fi
     
-    # 设置Python环境
-    setup_python_environment "$python_cmd"
+    # 设置Python环境（调用通用工具函数）
+    local venv_path="$PROJECT_ROOT/venv"
+    
+    log_info "设置Python虚拟环境..."
+    
+    # 创建虚拟环境
+    if [[ ! -d "$venv_path" ]]; then
+        $python_cmd -m venv "$venv_path"
+    fi
+    
+    # 激活虚拟环境
+    source "$venv_path/bin/activate"
+    
+    # 升级pip
+    pip install --upgrade pip setuptools wheel
+    
+    # 配置pip使用国内镜像源
+    pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/
+    pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+    
+    # 安装PyInstaller
+    pip install --no-cache-dir "pyinstaller==5.13.2"
+    
+    # 安装项目依赖
+    if [[ -f "requirements-desktop.txt" ]]; then
+        pip install -r requirements-desktop.txt
+    else
+        log_warning "未找到requirements-desktop.txt文件"
+    fi
+    
+    # 移除与PyInstaller不兼容的typing包
+    if pip show typing &> /dev/null; then
+        log_warning "检测到typing包，正在移除（PyInstaller兼容性要求）..."
+        pip uninstall -y typing
+    fi
+    
+    log_success "Python环境设置完成"
 }
 
 # 本地构建应用
 build_application_local() {
-    log_info "开始本地构建应用..."
+    local target_arch=$(uname -m)
+    local build_dir="$BUILD_DIR/linux"
+    local dist_dir="$DIST_DIR/linux"
     
-    # 激活虚拟环境
-    source "$PROJECT_ROOT/venv/bin/activate"
+    log_info "开始构建Linux应用 (架构: $target_arch)..."
     
-    # 清理之前的构建
-    rm -rf build dist
+    # 创建构建目录
+    mkdir -p "$build_dir" "$dist_dir"
+    cd "$build_dir"
+    
+    # 检查Python环境
+    local python_cmd
+    python_cmd=$(check_python_environment)
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+    
+    # 设置Python环境
+    setup_python_environment "$python_cmd"
+    
+    # 复制项目文件
+    log_info "复制项目文件..."
+    cp -r "$PROJECT_ROOT"/* .
     
     # 构建PyInstaller命令
     local pyinstaller_cmd
     pyinstaller_cmd=$(build_pyinstaller_command)
     
-    # 执行构建
+    # 使用PyInstaller构建
+    log_info "使用PyInstaller构建应用..."
     if eval "$pyinstaller_cmd"; then
-        # 复制构建产物到dist目录
-        cp dist/translate-chat "$DIST_DIR/"
-        
-        # 验证构建产物
-        if validate_build_artifact "$DIST_DIR/translate-chat"; then
-            log_success "本地构建完成"
-            return 0
+        # 复制构建产物
+        if [[ -d "dist/translate-chat" ]]; then
+            cp -r "dist/translate-chat" "$dist_dir/"
+            
+            # 验证构建产物
+            if validate_build_artifact "$dist_dir/translate-chat/translate-chat"; then
+                log_success "Linux应用构建成功"
+                return 0
+            else
+                log_error "构建产物验证失败"
+                return 1
+            fi
         else
-            log_error "构建产物验证失败"
+            log_error "Linux应用构建失败"
             return 1
         fi
     else
@@ -197,8 +249,8 @@ create_appimage() {
     log_info "创建AppImage: $appimage_name"
     
     # 检查可执行文件是否存在
-    if [[ ! -f "$DIST_DIR/translate-chat" ]]; then
-        log_error "可执行文件不存在: $DIST_DIR/translate-chat"
+    if [[ ! -f "$DIST_DIR/linux/translate-chat/translate-chat" ]]; then
+        log_error "可执行文件不存在: $DIST_DIR/linux/translate-chat/translate-chat"
         return 1
     fi
     
@@ -209,7 +261,7 @@ create_appimage() {
     mkdir -p "$appdir/usr/share/icons/hicolor/256x256/apps"
     
     # 复制可执行文件
-    cp "$DIST_DIR/translate-chat" "$appdir/usr/bin/"
+    cp "$DIST_DIR/linux/translate-chat/translate-chat" "$appdir/usr/bin/"
     
     # 创建桌面文件
     cat > "$appdir/usr/share/applications/translate-chat.desktop" << EOF
@@ -261,8 +313,8 @@ create_deb_package() {
     log_info "创建deb包: $deb_name"
     
     # 检查可执行文件是否存在
-    if [[ ! -f "$DIST_DIR/translate-chat" ]]; then
-        log_error "可执行文件不存在: $DIST_DIR/translate-chat"
+    if [[ ! -f "$DIST_DIR/linux/translate-chat/translate-chat" ]]; then
+        log_error "可执行文件不存在: $DIST_DIR/linux/translate-chat/translate-chat"
         return 1
     fi
     
@@ -273,7 +325,7 @@ create_deb_package() {
     mkdir -p "$deb_dir/DEBIAN"
     
     # 复制可执行文件
-    cp "$DIST_DIR/translate-chat" "$deb_dir/usr/bin/"
+    cp "$DIST_DIR/linux/translate-chat/translate-chat" "$deb_dir/usr/bin/"
     chmod +x "$deb_dir/usr/bin/translate-chat"
     
     # 创建桌面文件
@@ -360,7 +412,7 @@ main() {
     done
     
     # 显示开始信息
-    echo "==== 本地Linux构建脚本 v1.0.0 ===="
+    echo "==== Linux本地构建脚本 v1.0.0 ===="
     echo "开始时间: $(date)"
     echo ""
     
@@ -370,15 +422,15 @@ main() {
         exit 1
     fi
     
-    # 检测主机平台
-    local host_platform=$(detect_host_platform)
-    log_info "主机平台: $host_platform"
-    
-    # 检查平台兼容性
-    if [[ "$host_platform" != "linux-x86_64" ]]; then
-        log_error "此脚本仅支持在Linux x86_64平台上运行"
+    # 检查是否为Linux系统
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        log_error "此脚本仅适用于Linux系统"
         exit 1
     fi
+    
+    # 检测当前架构
+    local current_arch=$(uname -m)
+    log_info "当前架构: $current_arch"
     
     # 清理构建缓存
     if [[ "$CLEAN_BUILD" == true ]]; then
@@ -407,11 +459,10 @@ main() {
     # 创建构建目录
     create_build_directories
     
-    # 设置Python环境
-    setup_python_environment "$python_cmd"
-    
     # 构建应用
-    build_application_local
+    if ! build_application_local; then
+        exit 1
+    fi
     
     # 创建AppImage
     create_appimage

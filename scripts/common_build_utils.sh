@@ -28,12 +28,11 @@ DIST_DIR="$PROJECT_ROOT/dist"
 CACHE_DIR="$PROJECT_ROOT/.build_cache"
 
 # PyInstaller配置
-PYINSTALLER_VERSION="5.13.2"
+PYINSTALLER_VERSION="6.14.2"
 PYINSTALLER_OPTIONS=(
-    "--onefile"
+    "--onedir"
     "--windowed"
     "--name=translate-chat"
-    "--add-data=assets:assets"
     "--add-data=ui:ui"
     "--add-data=utils:utils"
 )
@@ -165,8 +164,8 @@ setup_python_environment() {
     pip install --no-cache-dir "pyinstaller==$PYINSTALLER_VERSION"
     
     # 安装项目依赖
-    if [[ -f "requirements-desktop.txt" ]]; then
-        pip install -r requirements-desktop.txt
+    if [[ -f "$PROJECT_ROOT/requirements-desktop.txt" ]]; then
+        pip install -r "$PROJECT_ROOT/requirements-desktop.txt"
     else
         log_warning "未找到requirements-desktop.txt文件"
     fi
