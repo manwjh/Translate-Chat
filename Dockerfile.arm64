@@ -1,0 +1,74 @@
+FROM python:3.10-slim
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    pkg-config \
+    libasound2-dev \
+    libportaudio2 \
+    libportaudiocpp0 \
+    portaudio19-dev \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制项目文件
+COPY . .
+
+# 安装Python依赖
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements-desktop.txt
+RUN pip install pyinstaller
+
+# 构建ARM64 Linux可执行文件
+RUN pyinstaller \
+    --onefile \
+    --name=translate-chat \
+    --distpath=dist/arm64 \
+    --workpath=build/arm64 \
+    --runtime-tmpdir=/tmp \
+    --add-data="assets:assets" \
+    --add-data="ui:ui" \
+    --add-data="utils:utils" \
+    --add-data="config_manager.py:." \
+    --add-data="asr_client.py:." \
+    --add-data="translator.py:." \
+    --add-data="lang_detect.py:." \
+    --add-data="hotwords.py:." \
+    --add-data="audio_capture.py:." \
+    --add-data="audio_capture_pyaudio.py:." \
+    --add-data="hotwords.json:." \
+    --hidden-import=kivy \
+    --hidden-import=kivymd \
+    --hidden-import=kivymd.app \
+    --hidden-import=kivymd.uix.screen \
+    --hidden-import=kivymd.uix.card \
+    --hidden-import=kivymd.uix.button \
+    --hidden-import=kivymd.uix.textfield \
+    --hidden-import=kivymd.uix.label \
+    --hidden-import=kivymd.uix.boxlayout \
+    --hidden-import=kivymd.uix.dialog \
+    --hidden-import=kivymd.uix.toolbar \
+    --hidden-import=kivymd.uix.selectioncontrol \
+    --hidden-import=websocket \
+    --hidden-import=aiohttp \
+    --hidden-import=cryptography \
+    --hidden-import=pyaudio \
+    --hidden-import=asr_client \
+    --hidden-import=translator \
+    --hidden-import=config_manager \
+    --hidden-import=lang_detect \
+    --hidden-import=hotwords \
+    --hidden-import=audio_capture \
+    --hidden-import=audio_capture_pyaudio \
+    main.py
+
+# 验证构建结果
+RUN file dist/arm64/translate-chat
+RUN ls -la dist/arm64/

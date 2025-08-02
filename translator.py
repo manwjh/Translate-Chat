@@ -1,8 +1,9 @@
 # =============================================================
 # 文件名(File): translator.py
-# 版本(Version): v0.4.0
+# 版本(Version): v1.5.0
+# 最后更新(Updated): 2025/07/29
 # 作者(Author): 深圳王哥 & AI
-# 创建日期(Created): 2025/7/25
+# 创建日期(Created): 2025/07/29
 # 简介(Description): 翻译 + ASR纠偏，返回纠错&翻译结果结构
 # =============================================================
 
@@ -78,7 +79,7 @@ class Translator:
                     config_manager.get('TRANSLATE_API_URL'),
                     headers=headers,
                     json=payload,
-                    timeout=15
+                    timeout=5
                 ) as resp:
                     if resp.status == 200:
                         data = await resp.json()

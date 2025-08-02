@@ -3,9 +3,9 @@
 
 # =============================================================
 # File Name: sys_config_window.py
-# Version: v1.2.1
+# Version: v2.0.2
 # Author: Shenzhen Wangge & AI
-# Created: 2025/7/25
+# Created: 2025/07/29
 # Description: API configuration interface with encrypted storage support, can run independently or integrate into main program
 # =============================================================
 

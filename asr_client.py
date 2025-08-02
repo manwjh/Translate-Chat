@@ -1,9 +1,17 @@
 # =============================================================
 # 文件名(File): asr_client.py
-# 版本(Version): v0.1.1
+# 版本(Version): v2.1.0
+# 最后更新(Updated): 2025/07/29
 # 作者(Author): 深圳王哥 & AI
-# 创建日期(Created): 2025/7/25
+# 创建日期(Created): 2025/07/29
+# 修改日期(Modified): 2025/1/28
 # 简介(Description): 火山ASR客户端模块
+# 修改记录(Changes): 
+#   - 完善异步上下文管理器实现，修复资源泄漏问题
+#   - 改进 __aenter__ 和 __aexit__ 方法的资源管理
+#   - 添加 _cleanup_resources 方法统一资源清理
+#   - 优化 connect 方法避免重复创建会话
+#   - 改进 run 方法的异常处理和任务管理
 # =============================================================
 
 import aiohttp
@@ -251,14 +259,50 @@ class VolcanoASRClientAsync:
         # self.speaker_detector = SpeakerChangeDetector(sample_rate=ASR_SAMPLE_RATE)
 
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
-        return self
+        """异步上下文管理器入口，建立连接"""
+        try:
+            # 创建会话并建立连接
+            await self.connect()
+            return self
+        except Exception as e:
+            # 如果连接失败，确保清理已创建的资源
+            await self._cleanup_resources()
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
+        """异步上下文管理器退出，清理资源"""
+        try:
+            await self._cleanup_resources()
+        except Exception as cleanup_error:
+            # 记录清理错误，但不掩盖原始异常
+            logger.error(f"清理ASR客户端资源时发生错误: {cleanup_error}")
+            if exc_type is None:
+                # 如果没有原始异常，则抛出清理错误
+                raise
+
+    async def _cleanup_resources(self):
+        """清理所有相关资源"""
+        self.running = False
+        
+        # 关闭WebSocket连接
         if self.conn and not self.conn.closed:
-            await self.conn.close()
+            try:
+                await self.conn.close()
+                logger.debug("WebSocket连接已关闭")
+            except Exception as e:
+                logger.warning(f"关闭WebSocket连接时发生错误: {e}")
+            finally:
+                self.conn = None
+        
+        # 关闭HTTP会话
         if self.session and not self.session.closed:
-            await self.session.close()
+            try:
+                await self.session.close()
+                logger.debug("HTTP会话已关闭")
+            except Exception as e:
+                logger.warning(f"关闭HTTP会话时发生错误: {e}")
+            finally:
+                self.session = None
 
     async def connect(self):
         """连接ASR服务，支持重试机制"""
@@ -267,11 +311,15 @@ class VolcanoASRClientAsync:
                 headers = RequestBuilder.new_auth_headers()
                 timeout = aiohttp.ClientTimeout(total=self.connection_timeout)
                 
-                # 创建带超时的会话
+                # 如果已有会话且未关闭，先关闭它
                 if self.session and not self.session.closed:
                     await self.session.close()
+                    self.session = None
+                
+                # 创建新的会话
                 self.session = aiohttp.ClientSession(timeout=timeout)
                 
+                # 建立WebSocket连接
                 self.conn = await self.session.ws_connect(ASR_WS_URL, headers=headers)
                 self.running = True
                 logger.info(f"成功连接到ASR服务: {ASR_WS_URL}")
@@ -396,18 +444,27 @@ class VolcanoASRClientAsync:
 
     async def run(self, audio_generator):
         """运行ASR客户端，支持错误处理和重试"""
+        send_task = None
         try:
-            await self.connect()
+            # 注意：连接应该在 __aenter__ 中已经建立
+            if not self.conn or self.conn.closed:
+                logger.warning("WebSocket连接未建立，尝试重新连接")
+                await self.connect()
+            
             await self.send_full_client_request()
             send_task = asyncio.create_task(self.send_audio_stream(audio_generator))
             await self.receive_results()
-            send_task.cancel()
-            try:
-                await send_task
-            except asyncio.CancelledError:
-                pass
+            
         except Exception as e:
             logger.error(f"ASR客户端运行异常: {str(e)}")
             raise
         finally:
+            # 取消发送任务
+            if send_task and not send_task.done():
+                send_task.cancel()
+                try:
+                    await send_task
+                except asyncio.CancelledError:
+                    pass
+            
             self.running = False 
